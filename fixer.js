@@ -1914,6 +1914,41 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced withdrawn address bindings from flat subscriber destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. `address` is as generic as identifiers get
+        // (CRM records, shipping surfaces, form models all bind it), so the
+        // pack layers an anchor gate on top of the primitive's guards:
+        // EVERY flat destructuring pattern in the file that binds `address`
+        // must have a right-hand side anchored to a member chain ending at
+        // .subscriber (the negative lookahead rejects deeper chains such as
+        // .subscriber.shipping_address, whose address object survives the
+        // contraction) - one unanchored pattern and the whole file is
+        // skipped. Patterns that pass the gate go through
+        // removeDestructuredProperty, which only removes a binding when it
+        // is flat, default/rest-free and has zero other code-region
+        // references (member access and string/comment mentions never
+        // count).
+        detect: /\{[^{}]*\baddress\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v1\/billing\b/.test(t) || /\bpaypal\b/i.test(t);
+          const subsCtx = /\/v1\/billing\/subscriptions|billing[_-]?subscriptions|billingSubscriptions/i.test(t);
+          if (!paypalCtx || !subsCtx) return t;
+          // chain must end at .subscriber (the subscriber object itself);
+          // .subscriber.shipping_address and any deeper chain never pass
+          const ANCHOR = /\.\s*subscriber\b(?!\s*\??\.)/;
+          const pat = /\{[^{}]*\baddress\b[^{}]*\}\s*=\s*([^;\n]*)/g;
+          let sawPattern = false;
+          let allAnchored = true;
+          for (const m of t.matchAll(pat)) {
+            sawPattern = true;
+            if (!ANCHOR.test(m[1])) { allAnchored = false; break; }
+          }
+          if (!sawPattern || !allAnchored) return t;
+          return removeDestructuredProperty(t, 'address');
+        },
+      },
     ],
   },
   'paypal-billing-subscriptions-v1-shipping-address-trim': {

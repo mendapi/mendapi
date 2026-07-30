@@ -508,6 +508,16 @@ const CASES = [
       'line1: subscriber.address.address_line_1,',
       'zip: subscriber.address.postal_code,',
       'return record.subscriber.address.admin_area_1;',
+      // AST-track pass: dead multi-line address binding collapses to the
+      // surviving email_address; the consumer line is untouched
+      'const { email_address } = sub.subscriber;',
+      'return email_address;',
+      // guard: referenced destructuring pattern survives untouched
+      'const { address, email_address } = sub.subscriber;',
+      'return { address, email_address };',
+      // anchor-gate guard: the shipping_address chain is deeper than
+      // .subscriber, so even a dead address binding stays untouched
+      'const { address, name } = sub.subscriber.shipping_address;',
     ],
     mustNotHave: [
       'sub.subscriber.address.address_line_1',
@@ -515,6 +525,7 @@ const CASES = [
       'address_details.street_name',
       'if (sub.subscriber.address)',
       'sub.subscriber?.address?.postal_code',
+      'address,\n    email_address',
     ],
     minFilesChanged: 1,
   },

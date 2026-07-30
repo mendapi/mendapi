@@ -24,4 +24,15 @@ async function buildInvoiceAddress(id, headers) {
   return invoice;
 }
 
-module.exports = { buildInvoiceAddress };
+async function contactCard(id, headers) {
+  const sub = await fetchSubscription(id, headers);
+  // Multi-line destructuring: the address binding is dead code once the
+  // spec drops subscriber.address; only email_address is consumed.
+  const {
+    address,
+    email_address,
+  } = sub.subscriber;
+  return email_address;
+}
+
+module.exports = { buildInvoiceAddress, contactCard };
