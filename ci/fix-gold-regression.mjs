@@ -422,6 +422,17 @@ const CASES = [
       'born: employee.profile.birth_date,',
       'full: employee.profile.name.full_name,',
       'district: employee.profile.address.admin_area_3,',
+      // AST-track pass: dead multi-line full_name binding collapses to the
+      // surviving given_name; the consumer line is untouched
+      'const { given_name } = token.payment_source.paypal.name;',
+      'return given_name;',
+      // guard: referenced destructuring pattern survives untouched
+      'const { birth_date, email_address } = token.payment_source.paypal;',
+      'return { birth_date, email_address };',
+      // anchor-gate guard: unanchored flat patterns in roster.js keep the
+      // whole file byte-identical even though the bindings are dead
+      'const { full_name, team } = row;',
+      'const { birth_date, badge } = row;',
     ],
     mustNotHave: [
       'src.paypal.name.full_name',
@@ -430,6 +441,7 @@ const CASES = [
       'src.paypal.tax_info',
       'venmo?.name?.alternate_full_name',
       'venmo?.birth_date',
+      'full_name,\n    given_name',
     ],
     minFilesChanged: 1,
   },

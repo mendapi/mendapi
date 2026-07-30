@@ -38,3 +38,28 @@ async function listTokens(customerId, headers) {
 }
 
 module.exports = { buildProfile, listTokens };
+
+// AST-track positive: multi-line destructuring off the paypal name
+// object — full_name is a dead binding (the line-level rule honestly
+// skips the entry line because it carries no wallet chain), the AST
+// pass should excise full_name and collapse the pattern to the
+// surviving given_name binding.
+async function greetingName(id, headers) {
+  const token = await fetchToken(id, headers);
+  const {
+    full_name,
+    given_name,
+  } = token.payment_source.paypal.name;
+  return given_name;
+}
+
+// AST-track negative: birth_date here is referenced after binding, so
+// removeDestructuredProperty must leave both lines exactly as written.
+async function ageCheck(id, headers) {
+  const token = await fetchToken(id, headers);
+  const { birth_date, email_address } = token.payment_source.paypal;
+  return { birth_date, email_address };
+}
+
+module.exports.greetingName = greetingName;
+module.exports.ageCheck = ageCheck;
