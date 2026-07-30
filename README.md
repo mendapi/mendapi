@@ -51,6 +51,28 @@ mendapi pr --repo /path/to/your/repo --from-report impact.json
 
 Running from a checkout? `node app/cli.js <command>` works identically.
 
+## Use it from your AI coding agent (MCP)
+
+`mendapi mcp` starts a Model Context Protocol server on stdio — **offline-first, zero network**: every tool call runs the local CLIs against the local SQLite database only, and the server ships with zero npm dependencies. It speaks the current MCP revision (2026-07-28, per-request `_meta` version negotiation + `server/discover`) and keeps full backward compatibility with older clients that use the `initialize` handshake (2025-06-18 / 2025-03-26) — a dual-era server, because a tool that repairs breaking changes should not ship one.
+
+Claude Code (one line):
+
+```bash
+claude mcp add mendapi -- npx mendapi mcp
+```
+
+Cursor (or any JSON-configured MCP client) — add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mendapi": { "command": "npx", "args": ["mendapi", "mcp"] }
+  }
+}
+```
+
+Tools exposed: `scan`, `deps`, `fix`, `changes` — the same `schema_version`-stamped JSON as the CLI `--json` flags. See the [For AI agents](https://mendapi.com/docs/agents.html) docs page for the full tool catalog and an autonomous-maintenance recipe.
+
 ## Why precision matters
 
 Alert fatigue kills tools like this. Our scanner gates every finding through:
