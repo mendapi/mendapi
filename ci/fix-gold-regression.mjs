@@ -425,12 +425,24 @@ const CASES = [
       "swish: { duration: 300, easing: 'ease-out' },",
       'brand: source.card.brand',
       'email: source.paypal.email_address',
+      // AST-track pass: the dead multi-line swish binding collapses to the
+      // surviving status_details; the consumer line is untouched
+      'const { status_details } = order.payment_source;',
+      'return { status: order.status, detail: status_details };',
+      // referenced negative site: pix is anchored to payment_source but the
+      // identifier is referenced — the pattern survives untouched
+      'return { pix, card };',
+      // anchor-gate negative site: pos.js binds a dead pix off an in-house
+      // printer profile row — the unanchored pattern keeps the file intact
+      'const { pix, dpi } = printerProfiles.receipt;',
     ],
     mustNotHave: [
       "swish: { name, country_code: 'SE' }",
       "pix: { country_code: 'BR', email_address: email }",
       'payment_source.swish',
       'payment_source.pix',
+      // AST-track pass: no multi-line swish binding may survive
+      'swish,\n    status_details',
     ],
     minFilesChanged: 1,
   },

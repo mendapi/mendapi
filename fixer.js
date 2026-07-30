@@ -1553,6 +1553,43 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced swish/pix bindings from flat payment_source destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone (multi-line patterns fail the balanced-line
+        // gate; single-line payment_source patterns it already rewrites).
+        // pix is a short generic token (imaging presets, print densities),
+        // so each field carries an anchor gate on top of the primitive's
+        // guards: EVERY flat destructuring pattern in the file that binds
+        // the name must have a right-hand side anchored to a member chain
+        // ending at payment_source (the negative lookahead rejects deeper
+        // chains - the withdrawn branches live directly on the object). One
+        // unanchored pattern (a `pix` pulled off an in-house print preset
+        // row, say) and the field is skipped for the whole file. Patterns
+        // that pass the gate go through removeDestructuredProperty, which
+        // only removes a binding when it is flat, default/rest-free and has
+        // zero other code-region references (member access and
+        // string/comment mentions never count).
+        detect: /\{[^{}]*\b(?:swish|pix)\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v2\/checkout\/orders\b/.test(t) || /\bpaypal\b/i.test(t);
+          if (!paypalCtx || !/\bpayment_source\b/.test(t)) return t;
+          const ANCHOR = /\.\s*payment_source\b(?!\s*\??\.)/;
+          let out = t;
+          for (const field of ['swish', 'pix']) {
+            const pat = new RegExp(`\\{[^{}]*\\b${field}\\b[^{}]*\\}\\s*=\\s*([^;\\n]*)`, 'g');
+            let sawPattern = false;
+            let allAnchored = true;
+            for (const m of out.matchAll(pat)) {
+              sawPattern = true;
+              if (!ANCHOR.test(m[1])) { allAnchored = false; break; }
+            }
+            if (!sawPattern || !allAnchored) continue;
+            out = removeDestructuredProperty(out, field);
+          }
+          return out;
+        },
+      },
     ],
   },
   'paypal-vault-v3-wallet-profile-fields-removal': {

@@ -42,4 +42,16 @@ async function describeOrder(id) {
   return summary;
 }
 
-module.exports = { createSwishOrder, createPixOrder, describeOrder };
+async function paymentMode(id) {
+  const order = await api('GET', `/v2/checkout/orders/${id}`);
+  // Multi-line destructuring: the line-level rule honestly skips unbalanced
+  // lines, so the AST pass must collapse the dead swish binding to the
+  // surviving status_details.
+  const {
+    swish,
+    status_details,
+  } = order.payment_source;
+  return { status: order.status, detail: status_details };
+}
+
+module.exports = { createSwishOrder, createPixOrder, describeOrder, paymentMode };
