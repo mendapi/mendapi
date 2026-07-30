@@ -601,12 +601,23 @@ const CASES = [
       'beneficial_owners: owners,',
       'bearers: company.business_entity.office_bearers,',
       'chair: company.business_entity.office_bearers[0],',
+      // AST-track pass: dead multi-line office_bearers binding collapses to
+      // the surviving beneficial_owners; the consumer line is untouched
+      'const { beneficial_owners } = data.referral_data.business_entity;',
+      'return beneficial_owners.map((o) => o.names);',
+      // guard: referenced destructuring pattern survives untouched
+      'const { office_bearers, names } = data.referral_data.business_entity;',
+      'return { office_bearers, names };',
+      // anchor-gate guard: unanchored flat pattern in civic.js keeps the
+      // whole file byte-identical even though the binding is dead
+      'const { office_bearers, seat } = row;',
     ],
     mustNotHave: [
       'office_bearers: officers.map(toBearer),',
       'firstBearerRole: data.referral_data.business_entity.office_bearers[0].role',
       'if (data.referral_data.business_entity.office_bearers)',
       'business_entity?.office_bearers',
+      'office_bearers,\n    beneficial_owners',
     ],
     minFilesChanged: 1,
   },

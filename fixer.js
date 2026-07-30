@@ -2260,6 +2260,41 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced office_bearers bindings from flat business_entity destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. office_bearers is distinctive but not
+        // unique (HR org charts and civic registries bind it too), so the
+        // pack layers an anchor gate on top of the primitive's guards:
+        // EVERY flat destructuring pattern in the file that binds
+        // office_bearers must have a right-hand side anchored to a member
+        // chain ending at .business_entity (the negative lookahead rejects
+        // deeper chains - the subtree has no surviving same-name deeper
+        // surface, but the gate stays consistent with the subscriber
+        // packs) - one unanchored pattern and the whole file is skipped.
+        // Patterns that pass the gate go through
+        // removeDestructuredProperty, which only removes a binding when it
+        // is flat, default/rest-free and has zero other code-region
+        // references (member access and string/comment mentions never
+        // count).
+        detect: /\{[^{}]*\boffice_bearers\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v2\/customer\b/.test(t) || /\bpaypal\b/i.test(t);
+          const prCtx = /\/v2\/customer\/partner-referrals|partner[_-]?referrals|partnerReferrals/i.test(t);
+          if (!paypalCtx || !prCtx) return t;
+          // chain must end at .business_entity (the owning object itself)
+          const ANCHOR = /\.\s*business_entity\b(?!\s*\??\.)/;
+          const pat = /\{[^{}]*\boffice_bearers\b[^{}]*\}\s*=\s*([^;\n]*)/g;
+          let sawPattern = false;
+          let allAnchored = true;
+          for (const m of t.matchAll(pat)) {
+            sawPattern = true;
+            if (!ANCHOR.test(m[1])) { allAnchored = false; break; }
+          }
+          if (!sawPattern || !allAnchored) return t;
+          return removeDestructuredProperty(t, 'office_bearers');
+        },
+      },
     ],
   },
   'paypal-partner-referrals-v2-contact-detail-trim': {

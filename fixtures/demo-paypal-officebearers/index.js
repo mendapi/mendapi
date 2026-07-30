@@ -30,8 +30,20 @@ async function summarizeReferral(id, headers) {
   return summary;
 }
 
+async function ownerNames(id, headers) {
+  const res = await fetch(`${BASE}/${id}`, { headers });
+  const data = await res.json();
+  // Multi-line destructuring: the office_bearers binding is dead code
+  // once the spec removes the subtree; only beneficial_owners is consumed.
+  const {
+    office_bearers,
+    beneficial_owners,
+  } = data.referral_data.business_entity;
+  return beneficial_owners.map((o) => o.names);
+}
+
 function toBearer(officer) {
   return { role: officer.role };
 }
 
-module.exports = { createReferral, summarizeReferral };
+module.exports = { createReferral, summarizeReferral, ownerNames };
