@@ -2054,6 +2054,48 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced withdrawn-field bindings from flat subscriber PII destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. The withdrawn names live at two depths of
+        // the subscriber object (top-level birth_date/tax_info, tax_id and
+        // tax_id_type under tax_info), so each group carries its own anchor
+        // gate on top of the primitive's guards: for each field, EVERY flat
+        // destructuring pattern in the file that binds the name must have a
+        // right-hand side anchored to that group's subscriber member chain
+        // - one unanchored pattern (a `birth_date` pulled off an HR record,
+        // say) and the field is skipped for the whole file. Patterns that
+        // pass the gate go through removeDestructuredProperty, which only
+        // removes a binding when it is flat, default/rest-free and has zero
+        // other code-region references (member access and string/comment
+        // mentions never count).
+        detect: /\{[^{}]*\b(?:birth_date|tax_info|tax_id_type|tax_id)\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v1\/billing\b/.test(t) || /\bpaypal\b/i.test(t);
+          const subsCtx = /\/v1\/billing\/subscriptions|billing[_-]?subscriptions|billingSubscriptions/i.test(t);
+          if (!paypalCtx || !subsCtx) return t;
+          const GROUPS = [
+            // chain must end at .subscriber (the subscriber object itself)
+            { fields: ['birth_date', 'tax_info'], anchor: /\.\s*subscriber\b(?!\s*\??\.)/ },
+            { fields: ['tax_id', 'tax_id_type'], anchor: /\.\s*subscriber\s*\??\.\s*tax_info\b/ },
+          ];
+          let out = t;
+          for (const { fields, anchor } of GROUPS) {
+            for (const field of fields) {
+              const pat = new RegExp(`\\{[^{}]*\\b${field}\\b[^{}]*\\}\\s*=\\s*([^;\\n]*)`, 'g');
+              let sawPattern = false;
+              let allAnchored = true;
+              for (const m of out.matchAll(pat)) {
+                sawPattern = true;
+                if (!anchor.test(m[1])) { allAnchored = false; break; }
+              }
+              if (!sawPattern || !allAnchored) continue;
+              out = removeDestructuredProperty(out, field);
+            }
+          }
+          return out;
+        },
+      },
     ],
   },
   'paypal-partner-referrals-v2-office-bearers-removal': {

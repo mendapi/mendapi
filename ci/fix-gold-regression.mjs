@@ -549,12 +549,24 @@ const CASES = [
       'dob: subscriber.birth_date,',
       'taxId: subscriber.tax_info.tax_id,',
       'taxIdType: subscriber.tax_info.tax_id_type,',
+      // AST-track pass: dead multi-line birth_date binding collapses to the
+      // surviving email_address; the consumer line is untouched
+      'const { email_address } = sub.subscriber;',
+      'return email_address;',
+      // guard: referenced destructuring pattern survives untouched
+      'const { tax_info, email_address } = sub.subscriber;',
+      'return { tax_info, email_address };',
+      // anchor-gate guard: unanchored flat patterns in payroll.js keep the
+      // whole file byte-identical even though the bindings are dead
+      'const { birth_date, badge } = row;',
+      'const { tax_id, desk } = row;',
     ],
     mustNotHave: [
       'sub.subscriber.birth_date',
       'sub.subscriber.tax_info.tax_id',
       'if (sub.subscriber.tax_info)',
       'sub.subscriber?.birth_date',
+      'birth_date,\n    email_address',
     ],
     minFilesChanged: 1,
   },

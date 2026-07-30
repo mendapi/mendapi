@@ -24,3 +24,28 @@ async function buildTaxRecord(id, headers) {
 }
 
 module.exports = { buildTaxRecord };
+
+// AST-track positive: multi-line destructuring off the subscriber
+// object — birth_date is a dead binding (the line-level rule honestly
+// skips the entry line because it carries no subscriber chain), the
+// AST pass should excise birth_date and collapse the pattern to the
+// surviving email_address binding.
+async function contactEmail(id, headers) {
+  const sub = await fetchSubscription(id, headers);
+  const {
+    birth_date,
+    email_address,
+  } = sub.subscriber;
+  return email_address;
+}
+
+// AST-track negative: tax_info here is referenced after binding, so
+// removeDestructuredProperty must leave both lines exactly as written.
+async function taxSnapshot(id, headers) {
+  const sub = await fetchSubscription(id, headers);
+  const { tax_info, email_address } = sub.subscriber;
+  return { tax_info, email_address };
+}
+
+module.exports.contactEmail = contactEmail;
+module.exports.taxSnapshot = taxSnapshot;
