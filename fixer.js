@@ -2642,8 +2642,13 @@ const MIGRATIONS = {
             return true;
           };
           let out = t
-            // destructuring / inline object lists: drop the name, keep siblings
-            .replace(/\{([^{}\n]*\bdheCipherSuite\b[^{}\n]*)\}/g, (m, names) => {
+            // destructuring / inline object lists: drop the name, keep siblings.
+            // Destructuring patterns (brace group followed by `=`) are left to
+            // the AST-track rule below — it reference-counts the binding before
+            // touching it, so a live `const { dheCipherSuite, x } = row` used
+            // later is never mangled into a ReferenceError.
+            .replace(/\{([^{}\n]*\bdheCipherSuite\b[^{}\n]*)\}/g, (m, names, offset, str) => {
+              if (/^\s*=[^=]/.test(str.slice(offset + m.length))) return m; // destructuring: AST track
               // only prune plain identifier lists (no nested values with colons
               // other than simple `key: value` — handled by the line rules below)
               if (/:/.test(names)) return m;
@@ -2658,6 +2663,12 @@ const MIGRATIONS = {
           out = out.split('\n').filter((line) => {
             if (!/\bdheCipherSuite\b/.test(line)) return true;
             if (!balanced(line)) return true; // multi-line value: AST track
+            // destructuring patterns are left to the AST-track rule below:
+            // single-line alias forms (`{ dheCipherSuite: cipher, browser }`)
+            // and bare entry lines of multi-line patterns — deleting the whole
+            // line would drop live sibling bindings.
+            if (/\{[^{}]*\bdheCipherSuite\b[^{}]*\}\s*=/.test(line)) return true;
+            if (/^[ \t]*dheCipherSuite\s*,?\s*$/.test(line)) return true;
             // object property line: `dheCipherSuite: <value>,`
             if (/^[ \t]*['"]?dheCipherSuite['"]?\s*:/.test(line)) return false;
             // statement line that only exists to consume the dead dimension
@@ -2665,6 +2676,27 @@ const MIGRATIONS = {
             return false; // remaining balanced lines referencing the token are dead reads
           }).join('\n');
           return out;
+        },
+      },
+      {
+        desc: 'Remove unreferenced dheCipherSuite bindings from flat destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone (single-line alias forms and multi-line
+        // patterns). Analytics query rows are plain objects, so the
+        // right-hand side carries no member-chain anchor to gate on — the
+        // file-level web-analytics marker is the scope guard, matching the
+        // line-level rule. removeDestructuredProperty enforces its own
+        // conservative guards: flat patterns only, no defaults/rest, and the
+        // bound identifier must have zero other code-region references
+        // (member access and string/comment mentions never count) — so
+        // `const { dheCipherSuite: suite, country } = row; return { suite, country };`
+        // survives untouched while a genuinely dead binding loses only the
+        // withdrawn dimension.
+        detect: /\{[^{}]*\bdheCipherSuite\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const webAnalytics = /query\/web-analytics/.test(t) || /web[\s-]analytics/i.test(t);
+          if (!webAnalytics) return t;
+          return removeDestructuredProperty(t, 'dheCipherSuite');
         },
       },
     ],

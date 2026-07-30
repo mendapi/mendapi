@@ -258,9 +258,20 @@ const CASES = [
   {
     fixture: 'demo-vercel-analytics',
     migration: 'vercel-web-analytics-dhe-cipher-suite-removal',
-    mustHave: ["DIMENSIONS = ['browser', 'country']", 'const { browser } = row;', 'stats[browser]', 'country: row.country,', 'totalVisits += entry.visits;', "dheCipherSuite: 'DHE-RSA-AES256-GCM-SHA384'", 'seen.add(record.dheCipherSuite);'],
-    mustNotHave: ["'dheCipherSuite',", '{ dheCipherSuite, browser }', 'stats[dheCipherSuite]', 'dheCipherSuite: row.dheCipherSuite', 'totalByCipher[entry.dheCipherSuite]'],
-    minFilesChanged: 2,
+    mustHave: ["DIMENSIONS = ['browser', 'country']", 'const { browser } = row;', 'stats[browser]', 'country: row.country,', 'totalVisits += entry.visits;', "dheCipherSuite: 'DHE-RSA-AES256-GCM-SHA384'", 'seen.add(record.dheCipherSuite);',
+      // AST-track pass: dead multi-line binding in share.js collapses to the
+      // surviving visits binding; the consumer line is untouched
+      'const { visits } = rows[0];',
+      'return visits;',
+      // guard: alias-form pattern whose binding is referenced afterwards
+      // survives untouched (export.js) — this is exactly the shape the old
+      // line-level rule used to delete whole-line, mangling live siblings
+      'const { dheCipherSuite: suite, country } = row;',
+      'return { suite, country };'],
+    mustNotHave: ["'dheCipherSuite',", '{ dheCipherSuite, browser }', 'stats[dheCipherSuite]', 'dheCipherSuite: row.dheCipherSuite', 'totalByCipher[entry.dheCipherSuite]',
+      // multi-line pattern residue: the dead entry line must be gone
+      'const {\n    dheCipherSuite,\n    visits,\n  } = rows[0];'],
+    minFilesChanged: 3,
   },
   {
     fixture: 'demo-vercel-extmaxdur',
