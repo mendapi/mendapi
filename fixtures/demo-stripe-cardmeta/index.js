@@ -33,4 +33,21 @@ async function auditUsage(id) {
   return rec.amount;
 }
 
-module.exports = { summarizeRecord, listAttempts, auditUsage };
+// AST-track positive case: the issuer binding is dead code after v2324 —
+// the pass should excise only issuer from the flat pattern, leaving the
+// live brand binding and its reference intact.
+async function brandOnly(id) {
+  const rec = await stripe.paymentRecords.retrieve(id);
+  const { issuer, brand } = rec.payment_method_details.card;
+  return brand;
+}
+
+// AST-track guard: the description binding is still referenced, so the
+// conservative reference count must leave the whole pattern untouched.
+async function describeRecord(id) {
+  const rec = await stripe.paymentRecords.retrieve(id);
+  const { description, network } = rec.payment_method_details.card;
+  return { description, network };
+}
+
+module.exports = { summarizeRecord, listAttempts, auditUsage, brandOnly, describeRecord };

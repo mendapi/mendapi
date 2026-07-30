@@ -321,8 +321,15 @@ const CASES = [
   {
     fixture: 'demo-stripe-cardmeta',
     migration: 'stripe-payment-record-card-details-removal',
-    mustHave: ['brand: rec.payment_method_details.card.brand,', "const recurring = rec.payment_method_details.card.stored_credential_usage === 'recurring';", 'network: r.payment_method_details.card.network,', 'label: present.description,', 'bank: present.issuer,', "description: 'Front-desk reader',", "issuer: 'internal-ops',"],
-    mustNotHave: ['bank: rec.payment_method_details.card.issuer', 'label: rec.payment_method_details.card.description', 'binPrefix: rec.payment_method_details.card.iin', 'firstSix: r.payment_method_details.card.iin', 'console.log(rec.payment_method_details.card.stored_credential_usage)'],
+    mustHave: ['brand: rec.payment_method_details.card.brand,', "const recurring = rec.payment_method_details.card.stored_credential_usage === 'recurring';", 'network: r.payment_method_details.card.network,', 'label: present.description,', 'bank: present.issuer,', "description: 'Front-desk reader',", "issuer: 'internal-ops',",
+      // AST-track pass: dead issuer binding removed, live sibling kept
+      'const { brand } = rec.payment_method_details.card;',
+      'return brand;',
+      // guard: referenced destructuring pattern survives untouched
+      'const { description, network } = rec.payment_method_details.card;',
+      'return { description, network };'],
+    mustNotHave: ['bank: rec.payment_method_details.card.issuer', 'label: rec.payment_method_details.card.description', 'binPrefix: rec.payment_method_details.card.iin', 'firstSix: r.payment_method_details.card.iin', 'console.log(rec.payment_method_details.card.stored_credential_usage)',
+      'const { issuer, brand }'],
     minFilesChanged: 1,
   },
   {
