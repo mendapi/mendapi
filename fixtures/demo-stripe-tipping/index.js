@@ -26,4 +26,16 @@ async function auditTipping(id) {
   return summary;
 }
 
-module.exports = { createTerminalConfig, auditTipping };
+async function usdFallback(id) {
+  const cfg = await stripe.terminal.configurations.retrieve(id);
+  // Multi-line destructuring pattern: the line-level rule honestly skips
+  // it (no tipping anchor on the entry line), so the AST pass must drop
+  // the dead bgn binding while keeping the referenced usd sibling.
+  const {
+    bgn,
+    usd,
+  } = cfg.tipping;
+  return usd.fixed_amounts.length;
+}
+
+module.exports = { createTerminalConfig, auditTipping, usdFallback };

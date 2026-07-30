@@ -279,8 +279,17 @@ const CASES = [
   {
     fixture: 'demo-stripe-tipping',
     migration: 'stripe-terminal-tipping-bgn-removal',
-    mustHave: ["eur: { percentages: [5, 10, 15], smart_tip_threshold: 5 },", 'const { eur } = cfg.tipping;', 'euroPresets: eur ? eur.percentages : [],', 'bgn: 0.5113,', 'const rate = FX_RATES[currency];'],
-    mustNotHave: ['bgn: { percentages', '{ bgn, eur }', 'cfg.tipping.bgn', 'hasLev'],
+    mustHave: ["eur: { percentages: [5, 10, 15], smart_tip_threshold: 5 },", 'const { eur } = cfg.tipping;', 'euroPresets: eur ? eur.percentages : [],', 'bgn: 0.5113,', 'const rate = FX_RATES[currency];',
+      // AST-track pass: dead multi-line bgn binding collapses to the
+      // surviving sibling; the consumer line is untouched
+      'const { usd } = cfg.tipping;',
+      'return usd.fixed_amounts.length;',
+      // anchor-gate guard: an unanchored flat pattern in presets.js keeps
+      // the whole file byte-identical even though bgn is a dead binding
+      'const { bgn, eur } = roundingPresets;',
+      'const roundingPresets = { bgn: 2, eur: 2, usd: 2 };'],
+    mustNotHave: ['bgn: { percentages', '{ bgn, eur } = cfg.tipping', 'cfg.tipping.bgn', 'hasLev',
+      'bgn,\n    usd'],
     minFilesChanged: 1,
   },
   {

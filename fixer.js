@@ -617,6 +617,35 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced bgn bindings from flat tipping destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone (multi-line patterns carry no tipping anchor
+        // on the entry line). "bgn" is a short generic token — any ISO
+        // currency table binds it — so this pass adds an anchor gate on top
+        // of the primitive's own guards: EVERY flat destructuring pattern in
+        // the file that binds bgn must have a right-hand side anchored to
+        // the tipping surface; one unanchored pattern (an FX or rounding
+        // table, say) and the whole file is skipped. Patterns that pass the
+        // gate go through removeDestructuredProperty, which only removes a
+        // binding when it is flat, default/rest-free and has zero other
+        // code-region references.
+        detect: /\{[^{}]*\bbgn\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const stripeCtx = /(?:from\s*|require\s*\(\s*)['"]stripe['"]/.test(t) || /api\.stripe\.com/.test(t) || /\bstripe\s*\./.test(t);
+          if (!stripeCtx || !/\btipping\b/.test(t)) return t;
+          const pat = /\{[^{}]*\bbgn\b[^{}]*\}\s*=\s*([^;\n]*)/g;
+          const anchor = /\btipping\b/;
+          let sawPattern = false;
+          let allAnchored = true;
+          for (const m of t.matchAll(pat)) {
+            sawPattern = true;
+            if (!anchor.test(m[1])) { allAnchored = false; break; }
+          }
+          if (!sawPattern || !allAnchored) return t;
+          return removeDestructuredProperty(t, 'bgn');
+        },
+      },
     ],
   },
   'stripe-payment-record-card-details-removal': {
