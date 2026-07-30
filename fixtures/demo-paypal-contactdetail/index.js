@@ -38,4 +38,12 @@ async function summarizeReferral(client, referralId) {
   return summary;
 }
 
-module.exports = { createReferral, summarizeReferral };
+function ownerPhoneLabel(data) {
+  const {
+    contact_name,
+    national_number,
+  } = data.referral_data.individual_owners[0].phones[0];
+  return national_number;
+}
+
+module.exports = { createReferral, summarizeReferral, ownerPhoneLabel };

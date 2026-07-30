@@ -633,6 +633,17 @@ const CASES = [
       'label: hit.contact_name,',
       'isPrimary: record.phones[0].primary,',
       'return record.addresses.filter((a) => !record.addresses[0].inactive && a.primary);',
+      // AST-track pass: dead multi-line contact_name binding collapses to the
+      // surviving national_number; the consumer line is untouched
+      'const { national_number } = data.referral_data.individual_owners[0].phones[0];',
+      'return national_number;',
+      // guard: referenced destructuring pattern in directory.js survives
+      // untouched (anchored chain, but the binding is used)
+      'const { tags, national_number } = data.referral_data.business_entity.phones[0];',
+      'return { tags, national_number };',
+      // anchor-gate guard: unanchored flat pattern in seating.js keeps the
+      // whole file byte-identical even though the binding is dead
+      'const { primary, desk } = row;',
     ],
     mustNotHave: [
       'contact_name: owner.displayName,',
@@ -641,6 +652,7 @@ const CASES = [
       'bizPrimaryAddr: data.referral_data.business_entity.addresses[0].primary',
       'if (data.referral_data.individual_owners[0].addresses[0].inactive)',
       'phones?.[0]?.tags',
+      'contact_name,\n    national_number',
     ],
     minFilesChanged: 1,
   },
