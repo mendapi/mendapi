@@ -513,11 +513,19 @@ const CASES = [
       'links: body.links,',
       'docs: entry.information_link,',
       'if (entry.information_link) return true;',
+      // AST-track pass: the dead multi-line information_link binding
+      // collapses to the surviving debug_id; the consumer line is untouched
+      'const { debug_id } = err;',
+      'return debug_id;',
+      // guard: referenced destructuring pattern survives untouched (audit.js)
+      'const { information_link, debug_id } = err;',
+      'return { information_link, debug_id, at: Date.now() };',
     ],
     mustNotHave: [
       'err.information_link',
       'body?.information_link',
       'console.log(err.information_link)',
+      'information_link,\n    debug_id',
     ],
     minFilesChanged: 1,
   },

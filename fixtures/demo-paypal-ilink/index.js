@@ -41,4 +41,15 @@ async function createToken(payload, headers) {
   return body;
 }
 
-module.exports = { deleteToken, createToken };
+module.exports = { deleteToken, createToken, failureTrace };
+
+// Extracts the correlation trace for support tickets. The legacy
+// documentation field binding is dead (nothing reads it), so the mend
+// should collapse the pattern to the surviving debug_id.
+function failureTrace(err) {
+  const {
+    information_link,
+    debug_id,
+  } = err;
+  return debug_id;
+}

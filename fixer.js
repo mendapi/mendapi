@@ -1841,6 +1841,25 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced information_link bindings from flat error-body destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. information_link is a distinctive token
+        // (same reasoning as the line-level rule), so no anchor gate is
+        // layered on top: the double file-level guard plus the primitive's
+        // own conservative judgements (flat patterns only, no defaults/rest,
+        // zero other code-region references for the bound identifier) carry
+        // the safety story - `const { information_link, links } = body;
+        // return { information_link, links };` survives untouched while a
+        // genuinely dead binding loses only the withdrawn field.
+        detect: /\{[^{}]*\binformation_link\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v3\/vault\b/.test(t) || /\bpaypal\b/i.test(t);
+          const vaultCtx = /\/v3\/vault|payment[_-]?tokens|paymentTokens|setup[_-]?tokens|setupTokens/i.test(t);
+          if (!paypalCtx || !vaultCtx) return t;
+          return removeDestructuredProperty(t, 'information_link');
+        },
+      },
     ],
   },
   'paypal-billing-subscriptions-v1-subscriber-address-removal': {
