@@ -1,0 +1,25 @@
+{
+  "change_id": 627,
+  "provider": "paypal",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "@paypal/paypal-server-sdk 1.0.0",
+    "detail": "all controller methods renamed (ordersCreate -> createOrder family)"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "0.7.0",
+    "new_version": "1.0.0",
+    "checked": "GitHub compare 0.7.0...1.0.0 of src/controllers verified the full rename map in ordersController.ts and paymentsController.ts: ordersCreate->createOrder, ordersGet->getOrder, ordersPatch->patchOrder, ordersConfirm->confirmOrder, ordersAuthorize->authorizeOrder, ordersCapture->captureOrder, ordersTrackCreate->createOrderTracking, ordersTrackersPatch->updateOrderTracking, authorizationsGet->getAuthorizedPayment, authorizationsCapture->captureAuthorizedPayment, authorizationsReauthorize->reauthorizePayment, authorizationsVoid->voidPayment, capturesGet->getCapturedPayment, capturesRefund->refundCapturedPayment, refundsGet->getRefund. Method signatures kept positional parameters in 1.0.0."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "method-rename-map",
+    "migration_guide": "This is a textbook deterministic rename map: every controller method changed name while keeping its positional signature, so the fix is a per-method token rewrite on ordersController/paymentsController call chains (ordersCreate becomes createOrder, authorizationsCapture becomes captureAuthorizedPayment, and so on for the fifteen verified pairs). Anchoring the rewrite to the controller member chain prevents collisions with unrelated identifiers. A migration pack is a direct candidate since the map was verified token-by-token against the SDK source diff.",
+    "example_before": "const { result } = await client.ordersController.ordersCreate({ body: orderRequest });",
+    "example_after": "const { result } = await client.ordersController.createOrder({ body: orderRequest });"
+  }
+}

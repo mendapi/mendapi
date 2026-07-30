@@ -1,0 +1,25 @@
+{
+  "change_id": 4132,
+  "provider": "twilio",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /2010-04-01/Accounts/{AccountSid}/Calls/FeedbackSummary.json -> 201",
+    "detail": "issues[].count"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:04:48.260Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "1.10.0",
+    "new_version": "1.20.0",
+    "checked": "Cached twilio_api_v2010 specs: at 1.10.0 issues[] items were typed objects carrying count, description and percentage_of_total_calls; from 1.20.0 the items schema is untyped and the current spec describes issues as a flat list of issue labels (imperfect-audio, dropped-call, ...). No other endpoint in any cached version exposes per-issue aggregate counts."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-data-discontinued",
+    "migration_guide": "The per-issue aggregate metrics (count, description, percentage_of_total_calls) were discontinued, not relocated: issues is now a plain array of issue label strings and no Twilio endpoint returns the old aggregates. A codemod cannot mend this because the data itself no longer exists upstream. Teams that depend on those metrics must make a product decision: derive equivalent aggregates by collecting per-call feedback events into their own analytics store, or drop the metric. The only mechanical assistance possible is defensive: treat issues entries as strings and remove property access on them.",
+    "example_before": "const worst = summary.issues.sort((a, b) => b.count - a.count)[0];",
+    "example_after": "const labels = summary.issues; // plain issue label strings; aggregates discontinued upstream"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 46660,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v1/radar/payment_evaluations",
+    "detail": "insights.card_issuer_decline"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T18:28:18.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2182 (2026-02-24.pisces)",
+    "new_version": "stripe/openapi v2183 (2026-02-24.pisces)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): insights_resources_payment_evaluation_insights lists card_issuer_decline in v2182 (properties: card_issuer_decline, evaluated_at, fraudulent_dispute) and drops it in v2183 (spec-wide token count 4 -> 0; the insights_resources_payment_evaluation_card_issuer_decline schema is deleted). The three records are the parent property plus its model_score / recommended_action projections of one subtree removal. The sibling scorer object (risk_score, recommended_action) exists in both versions."
+  },
+  "alternative_data_source": "The payment evaluation scorer object (insights_resources_payment_evaluation_scorer: risk_score, recommended_action) is present in both spec versions and remains the supported recommendation signal.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "insights.card_issuer_decline was removed from POST /v1/radar/payment_evaluations responses with no direct successor (insights.card_issuer_decline). Delete reads of the subtree (including .model_score and .recommended_action). If the code branched on the issuer-decline recommendation, evaluate whether the scorer signal (scorer.recommended_action / scorer.risk_score, available in both versions) covers the decision; adopting it changes semantics from issuer-decline modelling to the general risk scorer, so review the branch rather than blindly substituting.",
+    "example_before": "const ev = await stripe.radar.paymentEvaluations.create(params);\nif (ev.insights.card_issuer_decline?.recommended_action === 'block') {\n  blockPayment(ev.insights.card_issuer_decline.model_score);\n}",
+    "example_after": "const ev = await stripe.radar.paymentEvaluations.create(params);\n// card_issuer_decline is no longer returned (removed 2026-02-24.pisces).\n// The general scorer remains available on both versions:\nif (ev.scorer?.recommended_action === 'block') {\n  blockPayment(ev.scorer.risk_score);\n}"
+  }
+}

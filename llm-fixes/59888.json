@@ -1,0 +1,25 @@
+{
+  "change_id": 59888,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v13/deployments -> 200",
+    "detail": "anonymous"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T05:46:00.346Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.28.11",
+    "new_version": "v1.28.12",
+    "checked": "Cached vercel OAS snapshots v1.28.11 vs v1.28.12, whole-spec occurrence count: the anonymous property (object with expiresAt) appears 4 times in v1.28.11 (deployment GET/POST response schemas) and 0 times in v1.28.12. Optional in both old schemas (not in required lists). No successor field appears."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "The anonymous object (with expiresAt) was removed from deployment response schemas (GET /v13/deployments/{idOrUrl}, POST /v13/deployments). It was optional, so readers already had to null-guard; from v1.28.12 it is always undefined. The mechanical fix is to remove reads of deployment.anonymous and anonymous.expiresAt from response handling. There is no replacement field in the new spec.",
+    "example_before": "if (deployment.anonymous) scheduleCleanup(deployment.anonymous.expiresAt);",
+    "example_after": "// anonymous removed from deployment responses upstream (v1.28.12); read deleted."
+  }
+}

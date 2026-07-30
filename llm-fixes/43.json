@@ -1,0 +1,25 @@
+{
+  "change_id": 43,
+  "provider": "plaid",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "plaid-node 43.0.0 (OAS 2020-09-14_1.698.7)",
+    "detail": "report_requested -> reports_requested; protect_results removed; /item/handle_fraud_report removed"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "42.0.0",
+    "new_version": "43.0.0",
+    "checked": "Official plaid-node CHANGELOG.md 43.0.0 breaking list verified: /cra/check_report/verification/pdf/get replaces the report_requested field with a reports_requested array; protect_results was removed from LinkSessionResults (API no longer populates it, so reads were already dead); Recaptcha_RequiredError.http_code changed string to integer but the API already returned an integer (spec-only correction, no runtime change); /item/handle_fraud_report was removed but was never wired up for any customer."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "rename-and-wrap-request-field",
+    "migration_guide": "The only edit that affects running integrations is the /cra/check_report/verification/pdf/get request field: rename report_requested to reports_requested and wrap the scalar value in an array. This is a deterministic key rename plus array-wrap at each call site. Reads of link session protect_results can optionally be deleted as dead code (the API stopped populating the field), but that is hygiene, not a break. The removed fraud-report endpoint had no customers, so no consumer migration exists for it.",
+    "example_before": "await plaid.craCheckReportVerificationPdfGet({ report_requested: 'VOE' });",
+    "example_after": "await plaid.craCheckReportVerificationPdfGet({ reports_requested: ['VOE'] });"
+  }
+}

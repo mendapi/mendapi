@@ -1,0 +1,25 @@
+{
+  "change_id": 56652,
+  "provider": "paypal",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v3/vault/payment-tokens/{id}",
+    "detail": "payment_source.bank"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T19:48:13.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/vault_payment_tokens_v3.json @ fb6f12627e (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/vault_payment_tokens_v3.json @ a54ed770ae (2025-07-16)",
+    "checked": "Cached snapshots, token-level: information_link 3->2 (survivor is a static example inside error_503, not a property; new error schemas are {name,message,details,debug_id,links}). Wallet profile fields: birth_date 1->0, tax_info 3->0, alternate_full_name 1->0, address_details 2->0, admin_area_4 1->0; new paypal_wallet_response/venmo_response resolved name props = {given_name,surname} (old name schema had 7 props), address keeps the six core portable fields. apple_pay card props 10->5 (id/number/expiry/security_code/card_type dropped; billing_address/brand/last_digits/name/type survive). payment_source.bank: ach_debit token 7->0, schemas ach_debit_response/bank_response deleted, no bank schema in new spec. ordinal token 4->0, schema deleted. token_id_request.type: old enum [\"BILLING_AGREEMENT\"], new spec documents SETUP_TOKEN only (x-enumDescriptions). Card request: old card schema 10 props (id/last_digits/card_type/type present) -> new definitions-payment_source.card request 7 props; billing_address props 10->6 (address_line_3/admin_area_3/admin_area_4/address_details dropped)."
+  },
+  "alternative_data_source": "No successor bank surface in the v3 vault API; other payment_source methods remain available — choosing a replacement rail is a business decision.",
+  "fix": {
+    "strategy": "remove-discontinued-payment-source",
+    "migration_guide": "The bank (ACH debit) payment source was removed from Payment Method Tokens v3 (GET /v3/vault/payment-tokens/{id}): payment_source.bank and the ach_debit_response/bank_response schemas no longer exist (spec token 7 -> 0, no successor bank surface in this API). Delete code paths that read or branch on payment_source.bank from vaulted tokens. Offering an alternative bank rail is a business decision, not a mechanical substitution.",
+    "example_before": "if (token.payment_source.bank) {\n  return token.payment_source.bank.ach_debit.verification_status;\n}",
+    "example_after": "// The bank/ach_debit payment source was removed from the v3 vault API.\n// Remove this branch; a replacement bank rail is a business decision."
+  }
+}

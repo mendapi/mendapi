@@ -1,0 +1,25 @@
+{
+  "change_id": 6462,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v11/projects -> 200",
+    "detail": "publicSource"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T12:00:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.27.0",
+    "new_version": "v1.28.0",
+    "checked": "Cached vercel OAS snapshots: publicSource appears 14 times in v1.27.0 and only 4 times from v1.28.0 onward. The 4 survivors are: two request-side occurrences explicitly marked deprecated:true with description \"Deprecated. Accepted for backwards compatibility\", one event-payload boolean, and one event required list. All project response schemas dropped the field with no successor."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "The publicSource field was removed from all project response schemas (project get/list/update, microfrontends project lists, deployment projectSettings). Request side still accepts it but marks it deprecated for backwards compatibility, so writers keep working for now; readers get undefined. The mechanical fix is to remove reads of publicSource from response handling (destructuring, conditionals, display logic). Writers should also drop the deprecated request property proactively, but that part is optional today. There is no replacement field; source visibility is no longer reported through these endpoints.",
+    "example_before": "const { publicSource, name } = project;\nif (publicSource) showPublicBadge();",
+    "example_after": "const { name } = project;\n// publicSource removed from project responses upstream (v1.28.0); read deleted."
+  }
+}

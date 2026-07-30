@@ -1,0 +1,25 @@
+{
+  "change_id": 821,
+  "provider": "google",
+  "source": {
+    "kind": "discovery-doc-diff",
+    "anchor": "googleapis/google-api-nodejs-client discovery/youtube-v3.json @ commit 08443b4 (PR #3920)",
+    "detail": "lockstep major bump; per-doc diff verified additive/doc-only"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T09:30:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "revision 20260430",
+    "new_version": "revision 20260525",
+    "checked": "GitHub commit patch for discovery/youtube-v3.json fetched and read line by line. Full patch is 3 hunks: two description-string edits (channelId filter text gains '(Force TAP rebuild)', visitorId wording) and the revision bump. No path, method, parameter, schema property, or enum changes."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-no-wire-breaking-lockstep-bump",
+    "migration_guide": "All ten google entries in this release cite the same generator PR #3920 (commit 08443b4). The 'BREAKING CHANGES' banner comes from release-please propagating a breaking marker from other packages in the monorepo commit (aiplatform et al.) into every lockstep major bump; this package's own discovery diff was verified line by line from the GitHub commit patch and contains no removal, rename, retype, or new required field. Full patch is 3 hunks: two description-string edits (channelId filter text gains '(Force TAP rebuild)', visitorId wording) and the revision bump. No path, method, parameter, schema property, or enum changes. No consumer code change is required; the major version number alone is not a breaking API surface change for this package.",
+    "example_before": "const res = await youtube.search.list({ channelId, part: ['snippet'] });",
+    "example_after": "const res = await youtube.search.list({ channelId, part: ['snippet'] }); // unchanged - v33.0.0 discovery diff is description-only"
+  }
+}

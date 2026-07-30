@@ -1,0 +1,25 @@
+{
+  "change_id": 1343,
+  "provider": "shopify",
+  "source": {
+    "kind": "changelog",
+    "anchor": "checkout UI extensions useBuyerJourneyIntercept hook + block_progress capability",
+    "detail": "deprecated from version 2026-07; migrate to server-side cart/checkout validation Functions"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "checkout UI extensions API 2026-04 (useBuyerJourneyIntercept supported)",
+    "new_version": "checkout UI extensions API 2026-07 (hook + block_progress capability deprecated, removal in a future version)",
+    "checked": "Full changelog prose in DB raw_excerpt: the deprecated surface is a client-side Preact hook running inside a checkout UI extension plus its manifest capability. Shopify's prescribed migration is to a cart and checkout validation Function (server-side, different runtime, different API, different deployment artifact) or, for discount-code rejection, to the discount Function API. Existing extensions keep working on current and prior API versions, so there is no immediate wire breakage - the migration is a re-architecture with a future deadline."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-architectural-migration-required",
+    "migration_guide": "No codemod can perform this migration: the validation logic must move from a client-side React/Preact hook inside a checkout UI extension to a server-side Shopify Function - a different execution model (input query + pure function over cart state instead of imperative intercept callbacks), a new extension target in shopify.extension.toml, and a separate build/deploy pipeline. Translating imperative intercept conditions into a Function's declarative input query and validation errors requires understanding the business rules being enforced. Mechanical assistance is limited to flagging useBuyerJourneyIntercept call sites and the block_progress capability line so owners know where migration work lives.",
+    "example_before": "useBuyerJourneyIntercept(({ canBlockProgress }) => canBlockProgress && cartTooHeavy ? { behavior: 'block', reason: 'overweight' } : { behavior: 'allow' });",
+    "example_after": "// replaced by a cart & checkout validation Function (separate extension): run(input) { return { errors: input.cart.tooHeavy ? [{ message: 'overweight', target: '$.cart' }] : [] } }"
+  }
+}

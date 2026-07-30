@@ -1,0 +1,25 @@
+{
+  "change_id": 59455,
+  "provider": "cloudflare",
+  "source": {
+    "kind": "changelog",
+    "anchor": "Cloudflare product-specific MCP servers",
+    "detail": "/sse aliases no longer serve deprecated HTTP+SSE transport"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T05:48:24.479Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "MCP 2025 Streamable HTTP / HTTP+SSE era endpoints",
+    "new_version": "MCP 2026-07-28 Specification",
+    "checked": "Full changelog prose in DB raw_excerpt: Cloudflare MCP servers now run stateless per-request under the MCP 2026-07-28 spec. /mcp accepts stateless requests from 2025 Streamable HTTP clients and most clients reconnect unchanged. Historical /sse URLs remain as aliases for the same Streamable HTTP handler but no longer serve the deprecated HTTP+SSE transport - clients that force SSE transport break."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "update-client-transport-config",
+    "migration_guide": "Only MCP client configurations that force the deprecated HTTP+SSE transport against Cloudflare product MCP servers break. The mechanical fix is in client code/config: switch the transport type from SSE to Streamable HTTP (or automatic transport detection), and prefer the /mcp endpoint for new connections (/sse URLs still resolve but only as Streamable HTTP aliases). Clients already using Streamable HTTP or auto-detection need no change. Sessions are now stateless per request, so remove any client-side assumptions about a persistent MCP protocol session.",
+    "example_before": "new SSEClientTransport(new URL('https://observability.mcp.cloudflare.com/sse'));",
+    "example_after": "new StreamableHTTPClientTransport(new URL('https://observability.mcp.cloudflare.com/mcp'));"
+  }
+}

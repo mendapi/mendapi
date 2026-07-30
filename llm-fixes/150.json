@@ -1,0 +1,25 @@
+{
+  "change_id": 150,
+  "provider": "cloudflare",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "cloudflare-typescript v5.2.0",
+    "detail": "Remove created_at and updated_at fields from Zero Trust organization"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v5.1.0",
+    "new_version": "v5.2.0",
+    "checked": "Release notes (DB raw_excerpt complete) list one breaking-relevant line among otherwise additive features: commit 4656a4e removes created_at and updated_at from the Zero Trust organization type, driven by a composite API spec update. No successor timestamp fields are introduced in the same release. The removal is at the generated-type level following the upstream spec, so readers of organization.created_at / organization.updated_at lose the fields on upgrade."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "Delete reads of created_at / updated_at on Zero Trust organization objects (client.zeroTrust.organizations.*) and any downstream display or sorting logic keyed on them, or guard with optional chaining and a null fallback where the surrounding code must keep shape. This follows the remove-discontinued-field-read precedent (vercel dheCipherSuite): the fields were dropped from the spec with no replacement, so removing the read is the mechanically safe mend. Confidence medium because sort/display call sites may need a substitute ordering decision from the owner.",
+    "example_before": "const age = Date.now() - Date.parse(org.created_at);",
+    "example_after": "const createdAt = org.created_at ?? null; // field removed upstream in v5.2.0; decide replacement ordering key"
+  }
+}

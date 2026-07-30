@@ -1,0 +1,25 @@
+{
+  "change_id": 46,
+  "provider": "plaid",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "plaid-node 42.0.0 (OAS 2020-09-14_1.686.0)",
+    "detail": "Enrichments.recurrence removed; prism nullable; investments responses use InvestmentAccount"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "41.0.0",
+    "new_version": "42.0.0",
+    "checked": "Official plaid-node CHANGELOG.md 42.0.0 breaking list verified: the deprecated beta recurrence field (plus Recurrence/RecurringFrequency schemas) was removed from /transactions/enrich responses; CraPartnerInsightsPrism became nullable and prism is omitted when Prism Data was not requested; investments responses now use InvestmentAccount, a widening of AccountBase that adds margin_loan_amount without removing fields."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read-and-null-guard",
+    "migration_guide": "Two mechanical edits: (1) delete reads of enrichments.recurrence and any imports of the removed Recurrence/RecurringFrequency types - the upstream data product was discontinued with no successor field, so removal is the safe codemod; (2) add a null guard (optional chaining or explicit check) around partner-insights prism access, since the field is now omitted when Prism Data was not requested. The InvestmentAccount change is additive widening and needs no consumer edit.",
+    "example_before": "const freq = enrichment.recurrence.frequency;\nconst score = insights.prism.cash_score;",
+    "example_after": "// recurrence removed upstream (product discontinued)\nconst score = insights.prism?.cash_score ?? null;"
+  }
+}

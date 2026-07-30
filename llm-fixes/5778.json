@@ -1,0 +1,25 @@
+{
+  "change_id": 5778,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v3/events -> 200",
+    "detail": "events[].payload.personalAccountId"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:54:20.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "v1.28.8",
+    "new_version": "v1.28.9",
+    "checked": "Cached vercel OAS snapshots: enum value team-emu-account-split present in event type enums from v1.28.3 through v1.28.8, absent in v1.28.9 and v1.28.10 (only team-emu-updated remains). The payload variant carrying personalAccountId and managedAccountId belongs to this event type and disappears in the same version."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-dead-branch-harmless",
+    "migration_guide": "The team-emu-account-split event type was removed from the events surface entirely, together with its payload variant. Consumers never receive this event again, so switch branches or handler registrations for it become dead code rather than broken code. Nothing fails at runtime; no code migration is required for correctness. Removing the dead branch is optional hygiene the account owner may do at leisure, which is why this change is excluded from the code-fixable denominator rather than counted as a mendable break.",
+    "example_before": "case 'team-emu-account-split':\n  handleEmuSplit(event.payload.personalAccountId, event.payload.managedAccountId);\n  break;",
+    "example_after": "// Event type discontinued in v1.28.9; this branch is now unreachable dead code.\n// Optional cleanup only - no runtime breakage for consumers."
+  }
+}

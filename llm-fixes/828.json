@@ -1,0 +1,25 @@
+{
+  "change_id": 828,
+  "provider": "google",
+  "source": {
+    "kind": "discovery-doc-diff",
+    "anchor": "googleapis/google-api-nodejs-client discovery/vmmigration-v1 and v1alpha1.json @ commit 08443b4 (PR #3920)",
+    "detail": "lockstep major bump; per-doc diff verified additive/doc-only"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T09:30:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "revision 20260423",
+    "new_version": "revision 20260521",
+    "checked": "GitHub commit patch for discovery/vmmigration-v1 and v1alpha1.json fetched and read line by line. Patch adds an optional disks array to compute engine target defaults and annotates two PersistentDisk output fields (diskUri, sourceDiskNumber) as readOnly. Those fields were server-populated outputs already; the annotation documents existing behavior. No field removed, no request contract tightened on the wire."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-no-wire-breaking-lockstep-bump",
+    "migration_guide": "All ten google entries in this release cite the same generator PR #3920 (commit 08443b4). The 'BREAKING CHANGES' banner comes from release-please propagating a breaking marker from other packages in the monorepo commit (aiplatform et al.) into every lockstep major bump; this package's own discovery diff was verified line by line from the GitHub commit patch and contains no removal, rename, retype, or new required field. Patch adds an optional disks array to compute engine target defaults and annotates two PersistentDisk output fields (diskUri, sourceDiskNumber) as readOnly. Those fields were server-populated outputs already; the annotation documents existing behavior. No field removed, no request contract tightened on the wire. No consumer code change is required; the major version number alone is not a breaking API surface change for this package.",
+    "example_before": "console.log(disk.diskUri, disk.sourceDiskNumber);",
+    "example_after": "console.log(disk.diskUri, disk.sourceDiskNumber); // unchanged - v20.0.0 diff is additive plus readOnly doc annotations"
+  }
+}

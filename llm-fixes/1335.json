@@ -1,0 +1,25 @@
+{
+  "change_id": 1335,
+  "provider": "shopify",
+  "source": {
+    "kind": "changelog",
+    "anchor": "POS UI extensions API 2026-07 (Cart API setLineItemDiscount/bulkSetLineItemDiscounts)",
+    "detail": "FixedAmount line-item discounts become per-unit; the automatic total-to-per-unit conversion is removed"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "POS UI extensions API 2026-04",
+    "new_version": "POS UI extensions API 2026-07",
+    "checked": "Official changelog entry read in full from the DB raw_excerpt: in 2026-04 and earlier a FixedAmount discount passed to setLineItemDiscount/bulkSetLineItemDiscounts was a line-item total that POS auto-converted per unit; from 2026-07 the passed value is applied per unit directly (passing 5.00 on quantity 2 now discounts 10.00 total). Percentage discounts unaffected. Upstream explicitly instructs dividing the total by the line-item quantity and choosing a rounding policy when it does not divide evenly."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "argument-semantics-per-unit-conversion",
+    "migration_guide": "Value-semantics transform at every FixedAmount call site of setLineItemDiscount and bulkSetLineItemDiscounts: the amount argument must become the previous total divided by the line-item quantity. The mechanical part is wrapping the existing expression as (total / quantity); the judgement part is rounding, since currency amounts that do not divide evenly need an app-level policy (upstream says to pick a rounded per-unit value consistent with intended totals). Because correctness depends on where the quantity lives in the caller and on the rounding decision, this is an LLM-assisted draft transform: the fix template rewrites the argument and flags non-integral divisions for review. Percentage discount call sites must be left untouched.",
+    "example_before": "cart.setLineItemDiscount(lineItemId, { type: 'FixedAmount', amount: totalDiscount });",
+    "example_after": "cart.setLineItemDiscount(lineItemId, { type: 'FixedAmount', amount: (totalDiscount / lineItem.quantity).toFixed(2) });"
+  }
+}

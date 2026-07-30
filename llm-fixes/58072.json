@@ -1,0 +1,25 @@
+{
+  "change_id": 58072,
+  "provider": "paypal",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v2/customer/partner-referrals",
+    "detail": "business_entity.addresses[].inactive"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:16:22.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/customer_partner_referrals_v2.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/customer_partner_referrals_v2.json @ 7bbed782c329 (2025-07-23)",
+    "checked": "Cached snapshots, resolved props: person_address_detail and business_address_detail both lose primary and inactive (\"primary\"/\"inactive\" token counts 4 -> 0 spec-wide); the remaining eleven address leaves survive unchanged in NEW."
+  },
+  "alternative_data_source": "All positional address leaves (address_line_1..3, admin_area_1..4, postal_code, country_code, address_details, type) survive.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "business_entity.addresses[].inactive on POST /v2/customer/partner-referrals: the primary and inactive boolean flags were removed from both address detail schemas (token-verified spec-wide). No successor — delete the flags from payload writes and response reads; the positional address leaves are unchanged.",
+    "example_before": "addresses: [{\n  address_line_1: line1,\n  country_code: 'US',\n  type: 'WORK',\n  primary: true,\n}],",
+    "example_after": "// The primary/inactive flags were removed from the address schemas.\naddresses: [{\n  address_line_1: line1,\n  country_code: 'US',\n  type: 'WORK',\n}],"
+  }
+}

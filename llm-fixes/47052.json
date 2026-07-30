@@ -1,0 +1,25 @@
+{
+  "change_id": 47052,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v1/payment_records/{id}",
+    "detail": "payment_method_details.card.stored_credential_usage"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T18:39:34.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2323 (2026-03-31.basil)",
+    "new_version": "stripe/openapi v2324 (2026-03-31.basil)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): payments_primitives_payment_records_resource_payment_method_card_details lists description, iin, issuer and stored_credential_usage in v2323 and drops all four in v2324 (stored_credential_usage spec-wide token 1 -> 0; issuer property-bearing schemas 13 -> 12; the only remaining iin property lives on the unrelated legacy \"card\" source schema). The terminal surfaces payment_method_card_present and payment_method_details_card_present keep description/issuer in both versions, and the charge-surface payment_method_details_card has none of these fields in either version, so the removal is scoped to payment_records / payment_attempt_records read and report responses. The 40 records are 10 operations x 4 fields, projections of this single schema change."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "payment_method_details.card.stored_credential_usage was removed from GET /v1/payment_records/{id} responses (payment-record card details dropped description, iin, issuer and stored_credential_usage in one change). Delete reads of the field on payment_records / payment_attempt_records surfaces. Charge and card-present surfaces are unaffected by this change; do not substitute values from other surfaces without reviewing semantics.",
+    "example_before": "const rec = await stripe.paymentRecords.retrieve(id);\nconst v = rec.payment_method_details.card.stored_credential_usage;",
+    "example_after": "const rec = await stripe.paymentRecords.retrieve(id);\n// stored_credential_usage is no longer returned on payment-record card details (2026-03-31.basil).\n// Remove the read; card brand/last4/network metadata remains available."
+  }
+}

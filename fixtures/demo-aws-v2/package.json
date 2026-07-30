@@ -1,0 +1,6 @@
+{
+  "name": "demo-aws-v2",
+  "type": "commonjs",
+  "private": true,
+  "description": "Fixture repo using the legacy AWS SDK for JavaScript v2 (S3)."
+}

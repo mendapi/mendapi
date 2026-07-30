@@ -1,0 +1,25 @@
+{
+  "change_id": 3871,
+  "provider": "twilio",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v1/LinkShortening/Domains/{DomainSid}/Config -> 200",
+    "detail": "messaging_service_sids"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:04:48.260Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "1.40.0",
+    "new_version": "1.49.0",
+    "checked": "Cached twilio_messaging_v1 specs: messaging_service_sids present in DomainConfig responses at 1.40.0, absent at 1.49.0. Replacement association endpoints /v1/LinkShortening/MessagingServices/{MessagingServiceSid}/Domain and /v1/LinkShortening/Domains/{DomainSid}/MessagingServices/{MessagingServiceSid} exist in 1.49.0."
+  },
+  "alternative_data_source": "GET /v1/LinkShortening/MessagingServices/{MessagingServiceSid}/Domain (reverse lookup) or the per-pair association endpoint under /v1/LinkShortening/Domains/{DomainSid}/MessagingServices/{MessagingServiceSid}.",
+  "fix": {
+    "strategy": "replace-read-with-association-endpoint",
+    "migration_guide": "The DomainConfig response no longer carries the messaging_service_sids array. Code that read config.messaging_service_sids to learn which messaging services are attached to a domain must instead query the dedicated association surface. To resolve the domain for a known messaging service, call GET /v1/LinkShortening/MessagingServices/{MessagingServiceSid}/Domain. To manage or verify a specific pairing, use the /v1/LinkShortening/Domains/{DomainSid}/MessagingServices/{MessagingServiceSid} endpoint. There is no single call returning the full list of service SIDs for a domain, so callers that enumerated the array should iterate over their known messaging service SIDs and reverse-resolve each one.",
+    "example_before": "const config = await fetchJson(`https://messaging.twilio.com/v1/LinkShortening/Domains/${domainSid}/Config`);\nconst sids = config.messaging_service_sids;",
+    "example_after": "const resp = await fetchJson(`https://messaging.twilio.com/v1/LinkShortening/MessagingServices/${messagingServiceSid}/Domain`);\nconst attached = resp.domain_sid === domainSid;"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 57775,
+  "provider": "paypal",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v2/invoicing/invoices/{invoice_id}/send",
+    "detail": "links[].href"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T20:43:04.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/invoicing_v2.json @ fb6f12627e (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/invoicing_v2.json @ 7bbed782",
+    "checked": "Cached snapshots, token-level: OLD error_link_description.method enum = [CONNECT, DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT]; NEW = [GET, POST, PUT, DELETE, PATCH] (CONNECT/HEAD/OPTIONS dropped). The sibling link_description schema keeps the full 8-value enum in BOTH versions — the shrink is scoped to error-body links only. POST /v2/invoicing/invoices/{invoice_id}/send 202: OLD content (application/json + multipart/mixed) -> #/components/schemas/202-response whose only property is links (array of link_description); NEW content -> #/components/schemas/link_description directly, resolved props {href, rel, method}."
+  },
+  "alternative_data_source": "The link data itself survives: the 202 body is now the link object directly (href/rel/method at top level).",
+  "fix": {
+    "strategy": "replace-endpoint-call",
+    "migration_guide": "links[].href on POST /v2/invoicing/invoices/{invoice_id}/send: the send-invoice 202 body was reshaped from a wrapper object {links: [link, ...]} to a single link object {href, rel, method} (token-verified: OLD 202 referenced the 202-response schema whose only property was links; NEW 202 references link_description directly). Replace reads of res.links[...] with the top-level fields: res.href / res.rel / res.method.",
+    "example_before": "const r = await sendInvoice(id);\nconst statusUrl = r.links.find((l) => l.rel === 'self')?.href;",
+    "example_after": "const r = await sendInvoice(id);\n// 202 body is now a single link object { href, rel, method }.\nconst statusUrl = r.href;"
+  }
+}

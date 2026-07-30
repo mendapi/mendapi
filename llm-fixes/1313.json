@@ -1,0 +1,25 @@
+{
+  "change_id": 1313,
+  "provider": "github",
+  "source": {
+    "kind": "changelog",
+    "anchor": "GitHub MCP Server / MCP protocol stateless transition (2026-07-28)",
+    "detail": "MCP spec goes stateless; sessions and initialize removed at protocol level"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "MCP spec 2025-xx (stateful sessions)",
+    "new_version": "MCP spec draft (stateless, effective 2026-07-28)",
+    "checked": "Full changelog post fetched from github.blog (2026-07-23): the MCP protocol removes sessions and the initialize handshake, and the GitHub MCP Server already supports the new spec. The post states explicitly that all tier 1 MCP SDKs preserved backwards compatibility and shipped beta support, and that consumers 'don't need to do anything to maintain support'. The Go SDK wrapper makes old and new elicitation mechanisms both work. No consumer-visible call surface of the GitHub MCP Server changes."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-backward-compatible-transition",
+    "migration_guide": "No code change is required for consumers: the server-side transition is absorbed by backwards-compatible tier 1 SDKs, so existing clients keep working through and after the 2026-07-28 stateless switch. Teams maintaining bespoke MCP clients (not using an official SDK) should validate against the official conformance suite, but that is a testing task driven by their own protocol implementation, not a codemod against a monitored API surface. Ruled not-code-fixable to keep it out of the coverage denominator: there is no breaking wire surface for SDK-based consumers.",
+    "example_before": "// existing MCP client via official SDK",
+    "example_after": "// unchanged - SDKs preserve backwards compatibility across the stateless transition"
+  }
+}

@@ -1,0 +1,266 @@
+#!/usr/bin/env node
+// mendapi mcp — Model Context Protocol server over stdio (JSON-RPC 2.0,
+// newline-delimited messages). Zero npm dependencies, zero network code:
+// every tool call runs the local mendapi CLIs / SQLite database only.
+//
+// Tools exposed:
+//   scan    — scan a repo for usage impacted by upstream API breaking changes
+//   deps    — inventory which provider API surfaces a repo uses (optionally --match)
+//   fix     — preview (dry-run) or apply a deterministic migration pack
+//   changes — query the local change database (provider / type filters)
+//
+// Usage: mendapi mcp    (then speak MCP over stdin/stdout)
+//
+// Protocol notes:
+//   - initialize / notifications/initialized / ping / tools/list / tools/call
+//   - unknown methods with an id get a -32601 error; notifications are ignored
+//   - tool results follow the MCP content shape: { content: [{type:'text', text}], isError? }
+
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createInterface } from 'node:readline';
+
+const ROOT = dirname(fileURLToPath(import.meta.url));
+const DB_PATH = join(ROOT, 'data', 'sentinel.db');
+
+const SERVER_INFO = { name: 'mendapi', version: '0.1.0' };
+const PROTOCOL_VERSION = '2025-06-18';
+
+// ---------- tool registry ----------
+
+const TOOLS = [
+  {
+    name: 'scan',
+    description:
+      'Scan a repository for code impacted by monitored upstream API breaking changes. ' +
+      'Runs fully locally (no network). Returns the mendapi scan report JSON (schema_version 1): ' +
+      'impacts[] with change metadata, confidence (high/medium/low), and file:line usage sites.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo: { type: 'string', description: 'Absolute or relative path to the repository to scan' },
+        provider: { type: 'string', description: 'Optional: restrict to a single provider (e.g. "stripe")' },
+        include_prereleases: { type: 'boolean', description: 'Optional: include pre-release changes (default false)' },
+      },
+      required: ['repo'],
+    },
+  },
+  {
+    name: 'deps',
+    description:
+      'Inventory which provider API surfaces a repository uses (imports, endpoints, env credentials, ' +
+      'SDK call chains), with file:line evidence. Local only. Set match=true to join the inventory ' +
+      'against monitored breaking changes and migration packs. Returns JSON (schema_version 1).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo: { type: 'string', description: 'Path to the repository to inventory' },
+        match: { type: 'boolean', description: 'Also match surfaces against monitored changes and fix packs (default false)' },
+      },
+      required: ['repo'],
+    },
+  },
+  {
+    name: 'fix',
+    description:
+      'Preview (default, dry-run) or apply a deterministic migration pack against a repository. ' +
+      'Dry-run writes nothing to the repo; it produces a unified diff patch and a fix report JSON ' +
+      '(schema_version 1). Set apply=true only after reviewing the dry-run diff.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo: { type: 'string', description: 'Path to the repository to fix' },
+        migration: { type: 'string', description: 'Migration pack name (see `mendapi fix` for the registry)' },
+        apply: { type: 'boolean', description: 'Actually rewrite files (default false = dry-run preview)' },
+        out_dir: { type: 'string', description: 'Optional: directory for the patch + report artifacts' },
+      },
+      required: ['repo', 'migration'],
+    },
+  },
+  {
+    name: 'changes',
+    description:
+      'Query the local API change database (read-only). Filter by provider and/or change type ' +
+      '(breaking | deprecation | additive | docs-only | unknown). Returns the newest records first.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        provider: { type: 'string', description: 'Optional: provider name filter (e.g. "stripe")' },
+        change_type: { type: 'string', description: 'Optional: change type filter (e.g. "breaking")' },
+        limit: { type: 'number', description: 'Max records to return (default 20, max 200)' },
+      },
+    },
+  },
+];
+
+// ---------- tool implementations ----------
+
+function runCli(script, args) {
+  // Child CLIs print their JSON report on stdout. Non-zero exits are part of
+  // the CLI contract (e.g. fixer exit 1 = no changes), so capture stdout either way.
+  try {
+    return execFileSync(process.execPath, [join(ROOT, script), ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch (e) {
+    if (e.stdout && String(e.stdout).trim()) return String(e.stdout);
+    throw new Error(String(e.stderr || e.message).trim().slice(0, 2000));
+  }
+}
+
+function toolScan(args) {
+  if (!args.repo) throw new Error('scan: "repo" is required');
+  const repo = resolve(String(args.repo));
+  if (!existsSync(repo)) throw new Error(`scan: repo not found: ${repo}`);
+  const cliArgs = ['--repo', repo, '--json', '--quiet'];
+  if (args.provider) cliArgs.push('--provider', String(args.provider));
+  if (args.include_prereleases) cliArgs.push('--include-prereleases');
+  return runCli('scanner.js', cliArgs);
+}
+
+function toolDeps(args) {
+  if (!args.repo) throw new Error('deps: "repo" is required');
+  const repo = resolve(String(args.repo));
+  if (!existsSync(repo)) throw new Error(`deps: repo not found: ${repo}`);
+  const cliArgs = ['--repo', repo, '--json'];
+  if (args.match) cliArgs.push('--match');
+  return runCli('deps.js', cliArgs);
+}
+
+function toolFix(args) {
+  if (!args.repo) throw new Error('fix: "repo" is required');
+  if (!args.migration) throw new Error('fix: "migration" is required');
+  const repo = resolve(String(args.repo));
+  if (!existsSync(repo)) throw new Error(`fix: repo not found: ${repo}`);
+  const cliArgs = ['--repo', repo, '--migration', String(args.migration), '--json'];
+  if (args.apply) cliArgs.push('--apply');
+  if (args.out_dir) cliArgs.push('--out-dir', resolve(String(args.out_dir)));
+  return runCli('fixer.js', cliArgs);
+}
+
+async function toolChanges(args) {
+  if (!existsSync(DB_PATH)) throw new Error('changes: no change database found — run `mendapi sync` first');
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(DB_PATH, { readOnly: true });
+  try {
+    const conds = [];
+    const params = [];
+    if (args.provider) { conds.push('provider = ?'); params.push(String(args.provider)); }
+    if (args.change_type) { conds.push('change_type = ?'); params.push(String(args.change_type)); }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const limit = Math.max(1, Math.min(200, Number(args.limit) || 20));
+    const rows = db.prepare(
+      `SELECT id, provider, title, change_type, effective_date, fixability, source_url
+         FROM changes ${where} ORDER BY id DESC LIMIT ?`
+    ).all(...params, limit);
+    const total = db.prepare(`SELECT COUNT(*) AS n FROM changes ${where}`).get(...params).n;
+    return JSON.stringify({
+      tool: 'mendapi-mcp-changes/0.1',
+      schema_version: 1,
+      total_matching: total,
+      returned: rows.length,
+      changes: rows,
+    }, null, 2);
+  } finally {
+    db.close();
+  }
+}
+
+const TOOL_IMPL = { scan: toolScan, deps: toolDeps, fix: toolFix, changes: toolChanges };
+
+// ---------- JSON-RPC plumbing ----------
+
+function send(msg) {
+  process.stdout.write(JSON.stringify(msg) + '\n');
+}
+
+function reply(id, result) {
+  send({ jsonrpc: '2.0', id, result });
+}
+
+function replyError(id, code, message) {
+  send({ jsonrpc: '2.0', id, error: { code, message } });
+}
+
+async function handle(msg) {
+  const { id, method, params } = msg;
+  const isRequest = id !== undefined && id !== null;
+
+  switch (method) {
+    case 'initialize':
+      return reply(id, {
+        protocolVersion: (params && params.protocolVersion) || PROTOCOL_VERSION,
+        capabilities: { tools: {} },
+        serverInfo: SERVER_INFO,
+      });
+    case 'notifications/initialized':
+    case 'notifications/cancelled':
+      return; // notifications: no response
+    case 'ping':
+      return reply(id, {});
+    case 'tools/list':
+      return reply(id, { tools: TOOLS });
+    case 'tools/call': {
+      const name = params && params.name;
+      const impl = TOOL_IMPL[name];
+      if (!impl) {
+        return reply(id, {
+          content: [{ type: 'text', text: `Unknown tool: ${name}. Available: ${Object.keys(TOOL_IMPL).join(', ')}` }],
+          isError: true,
+        });
+      }
+      try {
+        const text = await impl((params && params.arguments) || {});
+        return reply(id, { content: [{ type: 'text', text }] });
+      } catch (e) {
+        return reply(id, { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true });
+      }
+    }
+    default:
+      if (isRequest) return replyError(id, -32601, `Method not found: ${method}`);
+      return; // unknown notification: ignore
+  }
+}
+
+function main() {
+  const rl = createInterface({ input: process.stdin, terminal: false });
+  let queue = Promise.resolve();
+  rl.on('line', (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let msg;
+    try {
+      msg = JSON.parse(trimmed);
+    } catch {
+      return replyError(null, -32700, 'Parse error');
+    }
+    // Serialize handling so responses come out in request order.
+    queue = queue.then(() => handle(msg)).catch((e) => {
+      if (msg && msg.id !== undefined && msg.id !== null) {
+        replyError(msg.id, -32603, `Internal error: ${e.message}`);
+      }
+    });
+  });
+  rl.on('close', () => {
+    // Do NOT process.exit() here: large tool responses may still be buffered
+    // in the stdout pipe, and process.exit() truncates pending writes.
+    // Let the event loop drain naturally once the queue settles.
+    queue.then(() => { process.exitCode = 0; });
+  });
+}
+
+const argv = process.argv.slice(2);
+if (argv.includes('--help') || argv.includes('-h')) {
+  console.log('Usage: node mcp.js');
+  console.log('');
+  console.log('Starts a Model Context Protocol server on stdio (JSON-RPC 2.0, newline-delimited).');
+  console.log('Tools: scan, deps, fix, changes. All local; no network code.');
+  process.exit(0);
+}
+
+main();

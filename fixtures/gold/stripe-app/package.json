@@ -1,0 +1,6 @@
+{
+  "name": "gold-stripe-app",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": { "stripe": "^22.0.0" }
+}

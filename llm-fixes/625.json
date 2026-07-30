@@ -1,0 +1,25 @@
+{
+  "change_id": 625,
+  "provider": "paypal",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "@paypal/paypal-server-sdk 2.0.0",
+    "detail": "controller methods switched from positional parameters to a single options object"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "1.1.0",
+    "new_version": "2.0.0",
+    "checked": "Verified by diffing doc/controllers/orders.md between tags 1.1.0 and 2.0.0: createOrder changed from positional parameters (body, paypalMockResponse, paypalRequestId, ...) to a single destructured options object ({ body, paypalMockResponse, paypalRequestId, ... }); the 2.0.0 release also added Subscriptions and Transaction Search controllers (additive). The compare shows 300 files touched with the signature restructure applied across all controllers."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "positional-args-to-options-object",
+    "migration_guide": "Every controller method call must wrap its positional arguments into a single options object whose keys follow the documented parameter names in order (body first, then the paypal* header options, then requestOptions). For the common single-argument case the rewrite is trivial ( fn(body) becomes fn({ body }) ) and safely regex-able; multi-argument calls need argument-position-to-key mapping, which is AST-codemod territory (b-track) but fully deterministic since the parameter order is documented per method. Confidence medium because the safe automated coverage is the dominant single-argument form.",
+    "example_before": "await client.ordersController.createOrder(orderRequest, undefined, requestId);",
+    "example_after": "await client.ordersController.createOrder({ body: orderRequest, paypalRequestId: requestId });"
+  }
+}

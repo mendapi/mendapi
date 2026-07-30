@@ -1,0 +1,25 @@
+{
+  "change_id": 6439,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-became-nullable",
+    "anchor": "GET /v9/projects/{idOrName} -> 200",
+    "detail": "avatar"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T12:00:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.27.0",
+    "new_version": "v1.28.0",
+    "checked": "Cached vercel OAS snapshots: the avatar string property on project response schemas gained nullable:true in v1.28.0 (occurrence count of \"avatar\" stays 47 across v1.27.0/v1.28.0/v1.28.10 — the property survives, only its nullability changed). Readers that previously assumed a string can now receive an explicit null."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "add-null-guard-on-read",
+    "migration_guide": "The avatar field on project responses became nullable. Code that calls string methods on it, interpolates it into URLs, or passes it to non-null-tolerant sinks can now throw or render \"null\". The mechanical fix is to add a null guard at each read site: optional chaining, a nullish-coalescing fallback, or an early return when avatar is null. No data was removed; only the absent-avatar case is now represented as null instead of being guaranteed a string.",
+    "example_before": "const url = `https://vercel.com/api/www/avatar/${project.avatar}`;",
+    "example_after": "const url = project.avatar ? `https://vercel.com/api/www/avatar/${project.avatar}` : DEFAULT_AVATAR_URL;"
+  }
+}

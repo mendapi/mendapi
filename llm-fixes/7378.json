@@ -1,0 +1,25 @@
+{
+  "change_id": 7378,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-became-nullable",
+    "anchor": "GET /v1/link_account_sessions/{session} -> 200",
+    "detail": "client_secret"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T17:25:39.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2110",
+    "new_version": "stripe/openapi v2120",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): on the financial_connections.session schema, client_secret is a required non-nullable string in v2110 and gains nullable:true while dropping out of the required list in v2120. The same schema backs all four operations (financial_connections/sessions and the legacy link_account_sessions alias, GET and POST), so the four records are projections of one schema change. The property itself survives; only its presence guarantee changed."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "add-null-guard-on-read",
+    "migration_guide": "client_secret on Financial Connections session responses can now be null (and absent from the required contract). Code that hands it straight to a client-side launch flow, interpolates it, or calls string methods on it can now receive null. The mechanical fix is a null guard at each read site: check for null before passing it to the client SDK launch call, and surface an explicit error or re-create the session when it is missing. No field was removed; only the absent-secret case is now represented as null instead of being guaranteed a string.",
+    "example_before": "const session = await stripe.financialConnections.sessions.retrieve(id);\nlaunchFlow(session.client_secret);",
+    "example_after": "const session = await stripe.financialConnections.sessions.retrieve(id);\nif (session.client_secret === null) throw new Error('session has no client_secret; create a new session');\nlaunchFlow(session.client_secret);"
+  }
+}

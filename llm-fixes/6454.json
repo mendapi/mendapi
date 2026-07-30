@@ -1,0 +1,25 @@
+{
+  "change_id": 6454,
+  "provider": "vercel",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v1/connect/connectors",
+    "detail": "data.publicKeyPem"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T12:00:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.27.0",
+    "new_version": "v1.28.0",
+    "checked": "Cached vercel OAS snapshots: in v1.27.0 the type:snowflake connector branch carries key-pair auth material (serviceUsername, serviceRole, privateKeyPem, publicKeyPem, publicKeyFingerprint). In v1.28.0 the type:snowflake branch is reduced to clientName + accountIdentifier (+ optional defaultSessionRole/extras) and a new type:snowflake-wif branch appears; privateKeyPem survives only in an unrelated schema (paired with clientSecret/slug). The removed properties have no in-schema successor within the connector create payload."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-auth-provisioning-migration",
+    "migration_guide": "The Snowflake connector auth model changed: key-pair credential fields (serviceUsername, serviceRole, publicKeyPem, publicKeyFingerprint) were removed from the connector create payload, and a separate snowflake-wif (workload identity federation) connector type was introduced. Deleting the removed properties from the request restores schema validity but leaves the connector without usable auth material — migrating requires provisioning new credentials (WIF setup or the new snowflake auth flow) on both the Vercel and Snowflake sides. That is credential/infrastructure provisioning a codemod cannot generate, matching the twilio MessageFlow and shopify mTLS precedents: the breaking element is a business-supplied input, not a code shape.",
+    "example_before": "await client.post('/v1/connect/connectors', { data: { clientName, accountIdentifier, serviceUsername, serviceRole, publicKeyPem, publicKeyFingerprint } });",
+    "example_after": "// No safe codemod: removing the key-pair fields yields a schema-valid request with no auth material.\n// Migration requires provisioning WIF or new snowflake credentials on both platforms first, then:\nawait client.post('/v1/connect/connectors', { data: { clientName, accountIdentifier /* + newly provisioned auth per chosen connector type */ } });"
+  }
+}

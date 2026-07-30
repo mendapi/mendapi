@@ -1,0 +1,25 @@
+{
+  "change_id": 1386,
+  "provider": "cloudflare",
+  "source": {
+    "kind": "changelog",
+    "anchor": "Cloudflare Fundamentals: Account Roles API deprecated",
+    "detail": "Account Roles API replaced by the Permission Groups API; response schema differs and role IDs must be remapped"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "Account Roles API (legacy)",
+    "new_version": "Permission Groups API",
+    "checked": "Official deprecation notice read in full from the DB raw_excerpt: the Account Roles API is deprecated with no end-of-life date yet; integrations must obtain Permission Group IDs from the new API and use them in Account Members policies. Schema mapping is documented: the legacy top-level description and the permissions object keyed by resource type with edit/read flags are replaced by a meta object carrying label and scopes, and individual permissions are no longer returned. Persisted legacy Role IDs require remapping."
+  },
+  "alternative_data_source": "Permission Groups API returns the successor records; labels/scopes live under the meta object of each permission group",
+  "fix": {
+    "strategy": "endpoint-and-schema-successor-migration",
+    "migration_guide": "Two-layer mend with a documented field map. Endpoint layer: list/read calls against the account roles routes move to the permission groups routes, and Account Members policy payloads switch from role IDs to permission group IDs. Schema layer at read sites: role.description becomes group.meta.label, and consumers of the per-resource permissions edit/read flags must drop that projection because individual permissions are not returned — scope-level checks against group.meta.scopes are the replacement. The read-site field remap and URL swap are mechanical; the ID remapping of persisted role assignments needs a one-time data migration keyed on the new list response, which the draft flags as an operational step rather than a codemod. No hard deadline exists yet, so the mend can ship as a prepared draft.",
+    "example_before": "const roles = await cf(`/accounts/${acct}/roles`);\nconst admin = roles.result.find((r) => r.description === 'Administrator');",
+    "example_after": "const groups = await cf(`/accounts/${acct}/iam/permission_groups`);\nconst admin = groups.result.find((g) => g.meta.label === 'Administrator');"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 3820,
+  "provider": "twilio",
+  "source": {
+    "kind": "request-prop-added-required",
+    "anchor": "POST /v1/Services/{MessagingServiceSid}/Compliance/Usa2p",
+    "detail": "MessageFlow"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:04:48.260Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "1.30.0",
+    "new_version": "1.40.0",
+    "checked": "Cached twilio_messaging_v1 specs: MessageFlow appears as a required request property of the US A2P compliance endpoint from 1.40.0. The field is a free-text description of how end users opt in to receive messages, reviewed by carriers during campaign vetting."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-business-content-required",
+    "migration_guide": "MessageFlow is now a required field on US A2P campaign registration. Its value is a human-authored compliance narrative describing the consumer opt-in flow, and carriers reject registrations with generic or fabricated text. No code migration can produce this value; the account owner must write an accurate description of their opt-in process. The mechanical part is limited to adding the parameter to the request once the business supplies the text.",
+    "example_before": "form.set('BrandRegistrationSid', brandSid);",
+    "example_after": "form.set('BrandRegistrationSid', brandSid);\nform.set('MessageFlow', process.env.TWILIO_A2P_MESSAGE_FLOW); // human-authored opt-in description, required by carriers"
+  }
+}

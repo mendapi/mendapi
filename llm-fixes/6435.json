@@ -1,0 +1,25 @@
+{
+  "change_id": 6435,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v10/projects -> 200",
+    "detail": "projects[].defaultResourceConfig.enableFunctionsExtendedMaxDuration"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T12:00:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.27.0",
+    "new_version": "v1.28.0",
+    "checked": "Cached vercel OAS snapshots: enableFunctionsExtendedMaxDuration appears 20 times in v1.27.0 (request resourceConfig, response resourceConfig/defaultResourceConfig, event payload, plus the project-functions-extended-max-duration-updated event type with 3 occurrences) and 0 times from v1.28.0 through v1.28.10. No successor flag with equivalent semantics appears in the newer specs; the extended-max-duration toggle was withdrawn from the API surface entirely."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field",
+    "migration_guide": "The enableFunctionsExtendedMaxDuration flag was removed from the entire Vercel project API surface in one sweep: it can no longer be sent in project create/update resourceConfig (schemas use additionalProperties:false, so continuing to send it is rejected), it is no longer returned in any project response, and the project-functions-extended-max-duration-updated event type no longer exists. The mechanical fix is to delete the flag from request payloads, remove reads of resourceConfig.enableFunctionsExtendedMaxDuration / defaultResourceConfig.enableFunctionsExtendedMaxDuration from response handling, and delete event-handler branches keyed on the removed event type (those branches are now dead). Capability boundary: whether extended function duration itself is still configurable is a platform-plan question outside code reach; the codemod only restores request validity and removes dead reads, it cannot re-enable the capability if the platform withdrew it.",
+    "example_before": "await client.patch(`/v9/projects/${id}`, { resourceConfig: { enableFunctionsExtendedMaxDuration: true } });\nif (project.resourceConfig.enableFunctionsExtendedMaxDuration) enableLongTimeout();",
+    "example_after": "await client.patch(`/v9/projects/${id}`, { resourceConfig: {} });\n// enableFunctionsExtendedMaxDuration withdrawn upstream (v1.28.0); flag and read removed."
+  }
+}

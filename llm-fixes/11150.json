@@ -1,0 +1,25 @@
+{
+  "change_id": 11150,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-became-nullable",
+    "anchor": "POST /v1/payment_records/report_payment -> 200",
+    "detail": "payment_method_details.alma.installments.count"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T17:48:52.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2248 (2026-03-25.dahlia)",
+    "new_version": "stripe/openapi v2249 (2026-04-22.dahlia)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): in v2248 the payment-record alma details reference the shared alma_installments schema whose count property is a required, non-nullable integer. In v2249 the payment-record surfaces switch to a dedicated projection schema (payments_primitives_payment_records_resource_payment_method_alma_details_resource_installments) where count carries nullable:true. The shared alma_installments schema used by charges/payment_intents is unchanged; only the payment_records / payment_attempt_records read surfaces are affected. Nine records are projections of this single schema change across the nine operations."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "add-null-guard-on-read",
+    "migration_guide": "payment_method_details.alma.installments.count on payment record and payment attempt record responses can now be null. Code that does arithmetic on it, formats it, or asserts it is a number can receive null. Add a null guard at each read site and decide the business fallback (treat as single installment, skip installment display, or surface unknown).",
+    "example_before": "const rec = await stripe.paymentRecords.retrieve(id);\nconst n = rec.payment_method_details.alma.installments.count;\nshowInstallments(n);",
+    "example_after": "const rec = await stripe.paymentRecords.retrieve(id);\nconst n = rec.payment_method_details.alma.installments?.count;\nif (n === null || n === undefined) showInstallmentsUnknown();\nelse showInstallments(n);"
+  }
+}

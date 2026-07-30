@@ -1,0 +1,25 @@
+{
+  "change_id": 147,
+  "provider": "cloudflare",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "cloudflare-typescript v6.0.0",
+    "detail": "major SDK release: renamed client paths, method signature changes, 179 return type changes, 17 removed endpoints, 43 removed types"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v5.x",
+    "new_version": "v6.0.0",
+    "checked": "Full release body (25KB) fetched via GitHub releases API and cached (loop/cache/misc/cf-v600-release.json). The breaking surface decomposes into: (a) 2 renamed client paths (originTLSClientAuth.hostnames.certificates -> zoneCertificates; radar.netflows -> netFlows) - pure member-chain renames; (b) 4 method signature changes (ai.toMarkdown.transform / radar.ai.toMarkdown.create move positional arg into params object; 2 positional param renames with unchanged wire shape); (c) 179 return type changes - TypeScript-only (133 -> null for delete/void ops, pagination/named type renames), wire responses unchanged; (d) 17 removed HTTP endpoints and client.intel.ipLists removal - capability withdrawals; (e) 43 removed/consolidated exported types - import-level renames mostly with named successors (CloudflaredCreateResponse -> CloudflareTunnel etc.)."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "sdk-major-migration-rename-map",
+    "migration_guide": "The mechanically fixable core: (1) rename member chains per the release map (hostnames.certificates -> zoneCertificates, netflows -> netFlows); (2) rewrite the two toMarkdown call sites to fold the positional file/body arg into the params object; (3) update type imports where the release names a direct successor (Cloudflared*Response -> CloudflareTunnel, SchemaUpload -> UserSchemaCreateResponse, pagination type renames); (4) delete annotations of types with no successor and let inference take over - return type changes are compile-time only, wire behavior is unchanged. Boundaries ruled out of this verdict: the 17 removed endpoints and client.intel.ipLists are capability withdrawals (callers need a product decision, not a codemod), and the Retry-After/empty-response/env-var semantics changes are behavioral and need per-site review. Confidence medium: rename maps are deterministic but the surface is large and mixed.",
+    "example_before": "const md = await client.ai.toMarkdown.transform(file, { account_id });",
+    "example_after": "const md = await client.ai.toMarkdown.transform({ account_id, files: [file] });"
+  }
+}

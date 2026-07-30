@@ -1,0 +1,25 @@
+{
+  "change_id": 105,
+  "provider": "twilio",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "twilio-node 5.13.1 (Data-ingress API changes 2026-03-20)",
+    "detail": "Removed estimatedCompletionTime from LongRunningOperationResponse; moved operationId from the response body to headers"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "twilio-node 5.13.0",
+    "new_version": "twilio-node 5.13.1",
+    "checked": "Release body of twilio-node 5.13.1 fetched in full from the GitHub releases API: the Data-ingress section states estimatedCompletionTime was removed from LongRunningOperationResponse and operationId moved from the response body to headers (dated 2026-03-20). Cross-checked the twilio-oai spec/json directory and the twilio-node src/rest tree on the current default branch: no data-ingress spec file or generated resource module is published there, so token-level spec verification is not possible; the release notes are the authoritative record for this private/limited-availability API surface."
+  },
+  "alternative_data_source": "operationId is still returned, relocated to the HTTP response headers of the same operation endpoints",
+  "fix": {
+    "strategy": "response-field-relocation-and-removal",
+    "migration_guide": "Two mechanical rewrites at read sites of LongRunningOperationResponse consumers. First, any read of operationId from the parsed response body must switch to reading the operation id response header exposed by the same call (for raw REST callers, read it from the fetch Response headers; SDK callers should use the headers surface of the returned operation). Second, reads of estimatedCompletionTime must be deleted: the field is gone with no successor, so completion should be tracked by polling the new GET /v1/ControlPlane/Operations/{OperationId} status path added in the same release window instead of projecting an estimate. Because the upstream spec is not published in twilio-oai, a fixture-verified migration pack cannot be built with token-level spec proof; this stays LLM-assisted draft grade with the release notes as evidence.",
+    "example_before": "const op = await res.json();\nscheduleRefresh(op.estimatedCompletionTime);\ntrack(op.operationId);",
+    "example_after": "const op = await res.json();\ntrack(res.headers.get('operation-id'));\n// completion is now observed via GET /v1/ControlPlane/Operations/{OperationId}"
+  }
+}

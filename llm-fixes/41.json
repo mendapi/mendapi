@@ -1,0 +1,25 @@
+{
+  "change_id": 41,
+  "provider": "plaid",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "plaid-node 45.0.0 (OAS 2020-09-14_1.708.0)",
+    "detail": "metadata/attributes map value types preserved"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "44.0.0",
+    "new_version": "45.0.0",
+    "checked": "Official plaid-node CHANGELOG.md fetched from master: the single [Breaking] item in 45.0.0 preserves arbitrary JSON value types in /cra/report/get metadata and attributes maps in generated client libraries. Wire format is unchanged; only the generated TypeScript value types widen from a narrower type to arbitrary JSON."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-type-shape-only",
+    "migration_guide": "The 45.0.0 breaking change widens generated TypeScript types for CRA report metadata/attributes maps to arbitrary JSON values. The API wire format is unchanged, so running code does not break. Consumers whose type annotations depended on the previous narrower generated types may see compile errors, but the correct resolution depends on how each consumer interprets the arbitrary values - a business-logic decision, not a mechanical rewrite. Per the type-shape churn precedent, this leaves the fixable denominator.",
+    "example_before": "const score: string = report.attributes['risk_score'];",
+    "example_after": "const score = report.attributes['risk_score']; // value is now typed as arbitrary JSON; narrow it explicitly per your data contract"
+  }
+}

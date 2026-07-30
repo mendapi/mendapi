@@ -1,0 +1,25 @@
+{
+  "change_id": 4153,
+  "provider": "twilio",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /2010-04-01/Accounts/{AccountSid}/Calls/{Sid}.json -> 200",
+    "detail": "annotation"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:04:48.260Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "1.20.0",
+    "new_version": "1.30.0",
+    "checked": "Cached twilio_api_v2010 specs: the annotation property exists on the Call schema at 1.20.0 and is gone from 1.30.0 onward. No replacement property appears anywhere in later specs; the field was a legacy remnant that Twilio stopped populating long before removal."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "delete-dead-read",
+    "migration_guide": "The annotation property is gone from Call responses and has no successor. Reads of call.annotation now evaluate to undefined, so any logic branching on it is dead code. Delete the property reads and any downstream handling. If your application stored per-call notes in that field historically, move that data to your own datastore keyed by call SID; the API no longer round-trips it.",
+    "example_before": "if (call.annotation) {\n  record.note = call.annotation;\n}",
+    "example_after": "// annotation removed from the Call resource; per-call notes now live in the local datastore."
+  }
+}

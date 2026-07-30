@@ -1,0 +1,5 @@
+# gitleaks allowlist — the only findings are intentional FAKE token samples
+# used by payload.js self-tests to verify redactSecrets() catches common
+# token formats. They are not real credentials (truncated/invalid values).
+[allowlist]
+paths = ['''payload.js''']

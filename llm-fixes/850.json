@@ -1,0 +1,25 @@
+{
+  "change_id": 850,
+  "provider": "aws",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "aws-sdk-js-v3 v3.1086.0 (client-guardduty)",
+    "detail": "GuardDuty findings deprecate GuardrailArn and GuardrailVersion in favor of the guardrails list"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "aws-sdk-js-v3 v3.1085.0",
+    "new_version": "aws-sdk-js-v3 v3.1086.0",
+    "checked": "Release notes for v3.1086.0 read in full from the DB raw_excerpt (complete release body): the client-guardduty entry states GuardDuty AI Protection findings now include Bedrock guardrail details and that GuardrailArn and GuardrailVersion are deprecated in favor of the guardrails list. This is a deprecation with a named successor field on the same finding detail object — reads remain valid today but must migrate before removal."
+  },
+  "alternative_data_source": "The guardrails list on the same GuardDuty finding detail carries the ARN and version per guardrail entry",
+  "fix": {
+    "strategy": "response-field-successor-remap",
+    "migration_guide": "Read-site remap with a scalar-to-list shape change. Consumers reading GuardrailArn/GuardrailVersion from GuardDuty AI Protection finding details must switch to iterating the guardrails list and reading the ARN/version off each entry; code that assumed exactly one guardrail should take the first entry explicitly and decide policy for multi-guardrail findings. Because the successor is a list, this is a semantic widening (one-to-many) rather than a pure rename — a regex pack could mend the single-read form conservatively, but call sites aggregating findings need the widening decision, so it is graded LLM-assisted draft until a fixture-backed pack narrows the safe shapes.",
+    "example_before": "const arn = finding.service.detail.GuardrailArn;\nconst version = finding.service.detail.GuardrailVersion;",
+    "example_after": "const [g] = finding.service.detail.guardrails ?? [];\nconst arn = g?.arn;\nconst version = g?.version;"
+  }
+}

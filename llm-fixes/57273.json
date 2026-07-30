@@ -1,0 +1,25 @@
+{
+  "change_id": 57273,
+  "provider": "paypal",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v1/billing/subscriptions/{id}",
+    "detail": "subscriber.name.prefix"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T20:34:05.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/billing_subscriptions_v1.json @ fb6f12627e (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/billing_subscriptions_v1.json @ 7bbed782",
+    "checked": "Cached snapshots, token-level with allOf resolution: NEW resolved subscriber props = {email_address, name, payer_id, payment_source, phone, shipping_address} (address, birth_date, tax_info gone). subscriber.name 7 props -> {given_name, surname}. shipping_address.name -> {full_name} only; shipping_address.address 10 -> 6 core portable fields. Inline plan echo in subscription 200: props lose id/status/create_time/update_time/links (7 survivors); top-level plan_id unchanged. phone.phone_number -> {national_number}. application_context.payment_method -> {payee_preferred}. revise 200 response: application_context key absent (OLD present); revise request application_context drops user_action only. transaction/capture payer_name keeps 6 name parts, drops alternate_full_name; status_details(.reason) absent in NEW transaction and capture 200 (status survives). Card request: OLD {billing_address, card_type, expiry, id, last_digits, name, number, security_code} -> NEW {attributes, billing_address, brand, expiry, name, number, security_code, type}. GET /v1/billing/plans params OLD [Prefer, product_id, plan_ids, page_size, page, total_required] -> NEW without plan_ids."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "subscriber.name.prefix was removed on GET /v1/billing/subscriptions/{id} (subscriber.name trimmed from 7 props to given_name/surname — same data-minimisation direction as the vault v3 wallet trim, token-verified). Delete dead reads; if you displayed full_name, compose it from given_name + surname.",
+    "example_before": "const who = sub.subscriber.name.full_name;",
+    "example_after": "const n = sub.subscriber.name;\nconst who = [n?.given_name, n?.surname].filter(Boolean).join(' ');"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 42,
+  "provider": "plaid",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "plaid-node 44.0.0 (OAS up to 2020-09-14_1.706.1)",
+    "detail": "ItemProductsTerminateReasonCode/UserProductsTerminateReasonCode removed; InterestOnly serialization change"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "43.0.0",
+    "new_version": "44.0.0",
+    "checked": "Official plaid-node CHANGELOG.md 44.0.0 breaking list verified: ItemProductsTerminateReasonCode and UserProductsTerminateReasonCode were removed in favor of ProductsTerminateReasonCode (wire values unchanged); StudentRepaymentPlanType.InterestOnly now serializes as 'interest only' instead of 'interest-only', matching the live API. Other listed items (CraCheckReportCreate*Options renames keep old interfaces available; fixture-only required props; FDX schema not referenced by any endpoint) do not break running consumers."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "rename-type-and-literal",
+    "migration_guide": "Two mechanical edits cover the real breakage. (1) Replace every reference to ItemProductsTerminateReasonCode or UserProductsTerminateReasonCode with ProductsTerminateReasonCode - a pure type-name rename map, accepted JSON values are unchanged. (2) Any code comparing StudentRepaymentPlanType values against the raw string 'interest-only' must switch to 'interest only'; the enum member name is unchanged so enum-based comparisons need no edit. Both are safe token-level rewrites.",
+    "example_before": "const code: ItemProductsTerminateReasonCode = reason;\nif (plan.type === 'interest-only') { ... }",
+    "example_after": "const code: ProductsTerminateReasonCode = reason;\nif (plan.type === 'interest only') { ... }"
+  }
+}

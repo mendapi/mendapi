@@ -1,0 +1,25 @@
+{
+  "change_id": 58061,
+  "provider": "paypal",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v2/customer/partner-referrals/{partner_referral_id}",
+    "detail": "referral_data.partner_config_override.action_renewal_url"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:16:22.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/customer_partner_referrals_v2.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/customer_partner_referrals_v2.json @ 7bbed782c329 (2025-07-23)",
+    "checked": "Cached snapshots, resolved props: partner_config_override {action_renewal_url, partner_logo_url, return_url, return_url_description, show_add_credit_card} -> {return_url, return_url_description, show_add_credit_card}. Survivors verified in NEW."
+  },
+  "alternative_data_source": "return_url, return_url_description and show_add_credit_card survive in partner_config_override.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "referral_data.partner_config_override.action_renewal_url on GET /v2/customer/partner-referrals/{partner_referral_id}: partner_logo_url and action_renewal_url were removed from partner_config_override (token-verified). No successor fields — stop sending them and delete reads; the surviving return-URL configuration is unchanged.",
+    "example_before": "partner_config_override: {\n  return_url: cb,\n  partner_logo_url: logoUrl,\n  action_renewal_url: renewUrl,\n},",
+    "example_after": "// partner_logo_url / action_renewal_url were removed (no successor).\npartner_config_override: {\n  return_url: cb,\n},"
+  }
+}

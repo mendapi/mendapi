@@ -1,0 +1,25 @@
+{
+  "change_id": 57979,
+  "provider": "paypal",
+  "source": {
+    "kind": "enum-value-removed",
+    "anchor": "GET /v1/payments/payouts-item/{payout_item_id}",
+    "detail": "payout_item.recipient_wallet = RECIPIENT_SELECTED"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:06:17.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/payments_payouts_batch_v1.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/payments_payouts_batch_v1.json @ 7bbed782c329 (2025-07-23)",
+    "checked": "Cached snapshots, token-level: recipient_wallet_enum values [PAYPAL, VENMO, RECIPIENT_SELECTED] -> [PAYPAL, VENMO]; RECIPIENT_SELECTED token count 1 -> 0 spec-wide. The enum backs payout_item_detail.recipient_wallet (read surfaces). The request-side recipient_wallet is a free-form string (pattern ^.*$) in both versions and is unaffected."
+  },
+  "alternative_data_source": "PAYPAL and VENMO remain the documented recipient_wallet values on read surfaces.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "payout_item.recipient_wallet = RECIPIENT_SELECTED on GET /v1/payments/payouts-item/{payout_item_id}: recipient_wallet_enum shrank from [PAYPAL, VENMO, RECIPIENT_SELECTED] to [PAYPAL, VENMO] (token-verified; RECIPIENT_SELECTED is gone spec-wide). This enum backs payout item READ surfaces (payout_item_detail). If your code dispatches on recipient_wallet === 'RECIPIENT_SELECTED', delete that dead branch; PAYPAL/VENMO branches are unchanged. The request-side recipient_wallet is a free-form string in both versions and is unaffected.",
+    "example_before": "switch (item.payout_item.recipient_wallet) {\n  case 'RECIPIENT_SELECTED':\n    handleRecipientChoice(item);\n    break;\n  case 'VENMO':\n    handleVenmo(item);\n    break;\n}",
+    "example_after": "// RECIPIENT_SELECTED is no longer a documented recipient_wallet value.\nswitch (item.payout_item.recipient_wallet) {\n  case 'VENMO':\n    handleVenmo(item);\n    break;\n}"
+  }
+}

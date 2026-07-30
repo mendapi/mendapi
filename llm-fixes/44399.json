@@ -1,0 +1,25 @@
+{
+  "change_id": 44399,
+  "provider": "stripe",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v1/payment_intents/{intent}/confirm",
+    "detail": "payment_method_options.us_bank_account.preferred_settlement_speed"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T18:00:21.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2153 (2026-01-28.clover)",
+    "new_version": "stripe/openapi v2154 (2026-01-28.clover)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): payment_intent_payment_method_options_us_bank_account lists preferred_settlement_speed in v2153 and drops it in v2154 with no successor property (token count 4 -> 0 across the whole spec; remaining props financial_connections, mandate_options, setup_future_usage, target_date, verification_method are unchanged). The three payment-intent request surfaces declare additionalProperties:false, so sending the property is rejected after the change. Fifty records are per-operation projections of this single schema removal across every endpoint that embeds a payment intent."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field",
+    "migration_guide": "payment_method_options.us_bank_account.preferred_settlement_speed was removed from the Stripe API with no successor (POST /v1/payment_intents/{intent}/confirm). Stop sending the property when creating/updating/confirming payment intents; the request schema rejects unknown properties. Settlement timing is now controlled by Stripe; if faster settlement matters to the business, that is an account-level conversation with Stripe, not a code path.",
+    "example_before": "await stripe.paymentIntents.create({\n  amount,\n  currency: 'usd',\n  payment_method_options: {\n    us_bank_account: { preferred_settlement_speed: 'fastest' },\n  },\n});",
+    "example_after": "await stripe.paymentIntents.create({\n  amount,\n  currency: 'usd',\n  payment_method_options: {\n    us_bank_account: {},\n  },\n});"
+  }
+}

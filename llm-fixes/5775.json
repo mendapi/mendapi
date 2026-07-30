@@ -1,0 +1,25 @@
+{
+  "change_id": 5775,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v1/query/web-analytics/visits/count -> 200",
+    "detail": "data.dheCipherSuite"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:54:20.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.28.8",
+    "new_version": "v1.28.9",
+    "checked": "Cached vercel OAS snapshots: dheCipherSuite present in web-analytics query response schemas (10 occurrences) from v1.28.5 through v1.28.8, zero occurrences in v1.28.9 and v1.28.10. No replacement field with cipher-suite semantics appears anywhere in the newer specs."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "The dheCipherSuite dimension was dropped from all web-analytics query responses with no successor field. The upstream simply stopped reporting this TLS telemetry dimension. Consumers that read or group by dheCipherSuite must delete the field access; the read now yields undefined and any aggregation keyed on it collapses into a single undefined bucket. The safe mechanical migration is to remove the field from response destructuring, group-by keys, and any downstream display logic. There is no way to recover the data from another endpoint.",
+    "example_before": "const { dheCipherSuite, browser } = row;\nstats[dheCipherSuite] = (stats[dheCipherSuite] || 0) + 1;",
+    "example_after": "const { browser } = row;\n// dheCipherSuite dimension discontinued upstream (v1.28.9); grouping removed."
+  }
+}

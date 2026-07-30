@@ -1,0 +1,25 @@
+{
+  "change_id": 59877,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v1/teams/{teamId}/feature-flags/settings -> 200",
+    "detail": "data[].connections"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T05:46:00.341Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.28.11",
+    "new_version": "v1.28.12",
+    "checked": "Cached vercel OAS snapshots v1.28.11 vs v1.28.12, direct schema walk: the connections array property (items: { edgeConfigId, edgeConfigItemKey }, both required) exists in the v1.28.11 feature-flags settings response schemas (GET/PATCH project, GET team) and is absent from every corresponding v1.28.12 schema. No successor field appears in the new schemas."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "The connections array (Edge Config links: edgeConfigId, edgeConfigItemKey) was removed from all feature-flags settings response schemas (GET/PATCH /v1/projects/{projectIdOrName}/feature-flags/settings, GET /v1/teams/{teamId}/feature-flags/settings). Readers now get undefined. The mechanical fix is to remove reads of connections (and its edgeConfigId/edgeConfigItemKey items) from response handling: destructuring, iteration, display logic. There is no replacement field; Edge Config linkage is no longer reported through these endpoints.",
+    "example_before": "const { connections } = settings;\nfor (const c of connections) syncEdgeConfig(c.edgeConfigId, c.edgeConfigItemKey);",
+    "example_after": "// connections removed from feature-flags settings responses upstream (v1.28.12); read deleted."
+  }
+}

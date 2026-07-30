@@ -1,0 +1,25 @@
+{
+  "change_id": 5226,
+  "provider": "vercel",
+  "source": {
+    "kind": "operation-removed",
+    "anchor": "GET /v1/vcr/repository/{idOrName}/images/{imageId}",
+    "detail": ""
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:54:20.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "v1.28.8",
+    "new_version": "v1.28.9",
+    "checked": "Cached vercel OAS snapshots: GET /v1/vcr/repository/{idOrName}/images/{imageId} present through v1.28.8, absent in v1.28.9. v1.28.9 and v1.28.10 define GET /v1/vcr/repository/{idOrName}/images/{imageIdOrDigest} with the same fetch-single-image semantics ('Fetch an individual image from a repository, including its tags and Dockerfile history entries')."
+  },
+  "alternative_data_source": "GET /v1/vcr/repository/{idOrName}/images/{imageIdOrDigest} - widened successor operation accepting an image id or digest.",
+  "fix": {
+    "strategy": "rename-path-parameter-endpoint",
+    "migration_guide": "The single-image fetch operation was re-declared with a widened path parameter that accepts either an image id or a digest. Path parameter names never appear on the wire, and existing image ids remain valid inputs, so raw REST callers keep working unchanged - the mend is confirming the call site and optionally adopting digest lookups. SDK-generated clients are the real breakage surface: the generated method parameter renames from imageId to imageIdOrDigest, so typed call sites must rename the argument.",
+    "example_before": "const img = await vercel.vcr.getImage({ idOrName: repo, imageId });",
+    "example_after": "const img = await vercel.vcr.getImage({ idOrName: repo, imageIdOrDigest: imageId }); // ids remain valid; digests now also accepted"
+  }
+}

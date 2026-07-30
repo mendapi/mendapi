@@ -1,0 +1,41 @@
+{
+  "name": "mendapi",
+  "version": "0.5.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "description": "Detect upstream API breaking changes, scan your codebase for impact, and open the fix PR.",
+  "bin": {
+    "mendapi": "./cli.js"
+  },
+  "files": [
+    "cli.js",
+    "scanner.js",
+    "fixer.js",
+    "pr.js",
+    "review.js",
+    "payload.js",
+    "llmprovider.js",
+    "llmtransport.js",
+    "llmfix.js",
+    "revalidate.js",
+    "deps.js",
+    "mcp.js",
+    "watcher.js",
+    "reclassify.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "author": "mendapi <contact@mendapi.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mendapi/mendapi.git"
+  },
+  "homepage": "https://mendapi.com",
+  "bugs": {
+    "url": "https://github.com/mendapi/mendapi/issues",
+    "email": "contact@mendapi.com"
+  }
+}

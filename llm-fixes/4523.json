@@ -1,0 +1,25 @@
+{
+  "change_id": 4523,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v1/storage/stores/integration/direct -> 200",
+    "detail": "store.product.agentSkillUrl"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:54:20.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "v1.28.2",
+    "new_version": "v1.28.3",
+    "checked": "Cached vercel OAS snapshots: agentSkillUrl (string, 'URL to a skill/guide for how AI agents should use this product') present in v1.28.0 through v1.28.2, absent in v1.28.3. The same product object in v1.28.3 gains agentSkills, an array whose description reads 'URLs to skills/guides for how AI agents should use this product' - a direct scalar-to-array successor."
+  },
+  "alternative_data_source": "store.product.agentSkills (array of skill/guide URLs) introduced in v1.28.3 on the same response object.",
+  "fix": {
+    "strategy": "replace-scalar-with-array-field",
+    "migration_guide": "The singular agentSkillUrl string was reshaped into the plural agentSkills array in the same release, with an identical description on the same product object. Consumers reading the single URL should read the first entry of the array (or iterate all entries if they can consume multiple guides). The mechanical migration is a field rename plus an index or iteration: product.agentSkillUrl becomes product.agentSkills?.[0] for single-URL consumers.",
+    "example_before": "const skillUrl = store.product.agentSkillUrl;",
+    "example_after": "const skillUrl = store.product.agentSkills?.[0];\n// or iterate store.product.agentSkills for all guide URLs"
+  }
+}

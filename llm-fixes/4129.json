@@ -1,0 +1,25 @@
+{
+  "change_id": 4129,
+  "provider": "twilio",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /2010-04-01/Accounts/{AccountSid}/SIP/Domains/{DomainSid}/CredentialListMappings/{Sid}.json -> 200",
+    "detail": "subresource_uris"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:04:48.260Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "1.10.0",
+    "new_version": "1.20.0",
+    "checked": "Cached twilio_api_v2010 specs: subresource_uris token count drops 23 -> 21 between 1.10.0 and 1.20.0; the SIP credential list mapping schema carries subresource_uris at 1.10.0 and not at 1.20.0. The underlying credential list / IP ACL resources remain addressable at their conventional 2010-04-01 REST paths in every later version."
+  },
+  "alternative_data_source": "Construct the child resource URL locally from the stable REST convention: /2010-04-01/Accounts/{AccountSid}/SIP/CredentialLists/{CredentialListSid}.json (and the IpAccessControlLists equivalent). The SIDs needed are present on the mapping resource itself.",
+  "fix": {
+    "strategy": "replace-uri-read-with-local-construction",
+    "migration_guide": "The mapping payload no longer includes the subresource_uris map. Code that followed mapping.subresource_uris to reach the underlying credential list or IP access control list should build the URL locally instead: the mapping still returns the child resource SID, and Twilio 2010-04-01 URLs are a stable deterministic function of account SID plus resource SID. Replace the dynamic URI lookup with a template string; no data is lost because the URI carried no information beyond the SIDs already in hand.",
+    "example_before": "const listUrl = mapping.subresource_uris.credential_lists;\nconst list = await fetchJson(`https://api.twilio.com${listUrl}`);",
+    "example_after": "const list = await fetchJson(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/SIP/CredentialLists/${mapping.sid}.json`);"
+  }
+}

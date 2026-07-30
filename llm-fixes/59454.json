@@ -1,0 +1,25 @@
+{
+  "change_id": 59454,
+  "provider": "cloudflare",
+  "source": {
+    "kind": "changelog",
+    "anchor": "1.1.1.1 DoH JSON API (application/dns-json) data field",
+    "detail": "record data presentation format and numeric DNSSEC algorithm identifiers"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T05:48:24.479Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "DoH JSON pre-2026-07-28",
+    "new_version": "DoH JSON 2026-07-28 rollout",
+    "checked": "Full changelog prose in DB raw_excerpt: CAA/NAPTR/RP/IPSECKEY/SVCB/HTTPS/TLSA/SSHFP/OPENPGPKEY data fields switch from RFC 3597 generic hex encoding to standard presentation format; RRSIG/DS/CDS/DNSKEY/CDNSKEY switch from mnemonic algorithm names (RSASHA256) to numeric identifiers per RFC 4034 (8, 13, 15; DS digest SHA-256 -> 2); HINFO character-strings become individually quoted. Before/after examples are in the changelog. During rollout either format may be returned."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "update-response-parser",
+    "migration_guide": "Consumers that parse the data field of 1.1.1.1 DoH JSON (application/dns-json) responses must update their parsers: (1) for CAA, NAPTR, RP, IPSECKEY, SVCB, HTTPS, TLSA, SSHFP and OPENPGPKEY records, parse standard presentation format instead of RFC 3597 hex (\\# <length> <hex>); (2) for RRSIG, DS, CDS, DNSKEY and CDNSKEY records, expect numeric DNSSEC algorithm identifiers (RSASHA256 -> 8, ECDSAP256SHA256 -> 13, ED25519 -> 15; DS digest SHA-256 -> 2) - a fixed mnemonic-to-number mapping from RFC 4034; (3) quote-aware splitting for HINFO. During the rollout both formats can appear, so parsers should accept both (e.g. map mnemonics to numbers when seen). Cloudflare notes the JSON schema is not stability-guaranteed; the durable fix is switching to DoH wireformat.",
+    "example_before": "if (answer.type === 43 /* DS */) { const [tag, alg, digestType] = answer.data.split(' '); assert(alg === 'RSASHA256'); }",
+    "example_after": "const ALG = { RSASHA256: '8', ECDSAP256SHA256: '13', ED25519: '15' };\nif (answer.type === 43 /* DS */) { const [tag, alg] = answer.data.split(' '); const algNum = ALG[alg] || alg; /* numeric from 2026-07-28 */ }"
+  }
+}

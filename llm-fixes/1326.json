@@ -1,0 +1,25 @@
+{
+  "change_id": 1326,
+  "provider": "shopify",
+  "source": {
+    "kind": "changelog",
+    "anchor": "POST https://checkout-mtls.pci.shopifyinc.com/sessions (card-deposit endpoint)",
+    "detail": "Shopify-issued mTLS client certificate required by 2026-10-15"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "card-deposit endpoint without client certificate requirement",
+    "new_version": "same endpoint, Shopify-issued mTLS client certificate enforced from 2026-10-15",
+    "checked": "Full changelog prose in DB raw_excerpt: the endpoint URL, request shape, and the downstream customerPaymentMethodCreditCardCreate/Update GraphQL mutations are all unchanged; the only new requirement is that every deposit request must present a Shopify-issued mTLS client certificate. Apps that only use customerPaymentMethodRemoteCreate are out of scope. The certificate must be obtained from Shopify (issuance process controlled by Shopify), so the blocking step is credential provisioning, not code."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-credential-provisioning-required",
+    "migration_guide": "A codemod cannot mend this: the breaking element is possession of a Shopify-issued client certificate, which the app operator must request from Shopify and then manage as a secret (storage, rotation, deployment). Only after that operational step exists is there a small mechanical tail - wiring the cert/key into the HTTPS client used for the /sessions deposit call (e.g. Node https.Agent { cert, key }) - and that wiring depends on where the operator chooses to store the credential. Follows the MessageFlow precedent (twilio #3820): required inputs that only the business can produce put the change outside codemod reach.",
+    "example_before": "await fetch('https://checkout-mtls.pci.shopifyinc.com/sessions', { method: 'POST', body });",
+    "example_after": "const agent = new https.Agent({ cert: SHOPIFY_MTLS_CERT, key: SHOPIFY_MTLS_KEY }); // certificate must be issued by Shopify first\nawait fetchWithAgent('https://checkout-mtls.pci.shopifyinc.com/sessions', { method: 'POST', body, agent });"
+  }
+}

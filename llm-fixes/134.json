@@ -1,0 +1,25 @@
+{
+  "change_id": 134,
+  "provider": "stripe",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "stripe-node v22.3.1 (#2779)",
+    "detail": "HttpClient and HttpClientResponse types exported as interfaces instead of classes"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "stripe-node v22.3.0",
+    "new_version": "stripe-node v22.3.1",
+    "checked": "Release notes for v22.3.1 (PR #2779) read in full from the DB raw_excerpt (complete release body): Stripe.HttpClient and Stripe.HttpClientResponse are now exported as interfaces reflecting the minimal contract rather than concrete classes; the same release (#2778) restores the public type exports dropped in the v22 migration. Wire behaviour is unchanged — the breakage surface is TypeScript declarations of custom HTTP client implementations."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "type-surface-extends-to-implements",
+    "migration_guide": "Purely a TypeScript type-surface mend with no runtime change. Custom HTTP client classes that used \"extends Stripe.HttpClient\" (relying on the concrete class) must switch to \"implements Stripe.HttpClient\" and provide the interface members themselves, or extend the still-exported concrete default client. Same transform for HttpClientResponse subclasses. Value-position references to the removed class constructors (e.g. instanceof checks against Stripe.HttpClient) must be replaced with structural checks. This is a declaration-level edit driven by the class/interface distinction, so it needs syntax awareness of extends vs implements clauses — an AST-track candidate rather than a regex pack; classified code-fixable with the transform documented here.",
+    "example_before": "class MyClient extends Stripe.HttpClient {\n  makeRequest(...args) { /* custom transport */ }\n}",
+    "example_after": "class MyClient implements Stripe.HttpClient {\n  makeRequest(...args) { /* custom transport */ }\n}"
+  }
+}

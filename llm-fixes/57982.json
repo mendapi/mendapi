@@ -1,0 +1,25 @@
+{
+  "change_id": 57982,
+  "provider": "paypal",
+  "source": {
+    "kind": "enum-value-removed",
+    "anchor": "GET /v1/customer/disputes/{id}",
+    "detail": "evidences[].evidence_info.tracking_info[].carrier_name =  DE_DPD_DELISTACK"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:06:17.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/customer_disputes_v1.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/customer_disputes_v1.json @ a54ed770aec6 (2025-07-16)",
+    "checked": "Cached snapshots, token-level: tracking_info.carrier_name enum length 1257 in BOTH versions; the value ' DE_DPD_DELISTACK' (leading space) exists only in OLD, the trimmed 'DE_DPD_DELISTACK' only in NEW — an upstream typo correction, a value rename in place."
+  },
+  "alternative_data_source": "The corrected value 'DE_DPD_DELISTACK' (no leading space) is the direct successor.",
+  "fix": {
+    "strategy": "replace-enum-value-write",
+    "migration_guide": "evidences[].evidence_info.tracking_info[].carrier_name =  DE_DPD_DELISTACK on GET /v1/customer/disputes/{id}: the carrier_name enum value ' DE_DPD_DELISTACK' (with a leading space — an upstream typo) was corrected to 'DE_DPD_DELISTACK' (token-verified: enum length 1257 in both versions, only this value changed). Update any string comparison or write that uses the space-prefixed literal to the trimmed value. This is a rename in place with a direct successor.",
+    "example_before": "if (t.carrier_name === ' DE_DPD_DELISTACK') {\n  useDpdTracker(t);\n}",
+    "example_after": "if (t.carrier_name === 'DE_DPD_DELISTACK') {\n  useDpdTracker(t);\n}"
+  }
+}

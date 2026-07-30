@@ -1,0 +1,25 @@
+{
+  "change_id": 634,
+  "provider": "meta",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "Marketing API v25.0 / facebook-nodejs-business-sdk 25.0.0",
+    "detail": "Advantage+ Shopping/App Campaigns can no longer be created or updated"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "24.0.1",
+    "new_version": "25.0.0",
+    "checked": "Release notes in DB raw excerpt verified against the facebook-nodejs-business-sdk v25.0.0 release: ASC and AAC campaign creation/update via the Marketing API is withdrawn starting v25.0, extending to all versions by 2026-05-19, as part of Automation Unification toward the streamlined Advantage+ setup. Legacy metrics (Page Reach, Impressions, 3-second Viewers) are additionally slated for deprecation in June 2026."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-platform-capability-withdrawn",
+    "migration_guide": "This is a platform capability withdrawal, not an API surface rename: Advantage+ Shopping and App Campaign objects can no longer be created or updated through the Marketing API at all. The sanctioned path is the streamlined Advantage+ setup, which restructures campaign objects and settings - choosing how to map existing ASC/AAC campaigns onto the new setup is an advertising-strategy decision per account. No codemod can produce that mapping; only a human migration of the campaign structure applies.",
+    "example_before": "await new AdAccount(id).createCampaign([], { smart_promotion_type: 'AUTOMATED_SHOPPING_ADS', ... });",
+    "example_after": "// Advantage+ Shopping campaign creation via Marketing API is withdrawn in v25.0.\n// Migrate to the streamlined Advantage+ setup; campaign structure mapping requires a human decision."
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "gold-openai-app",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": { "openai": "^6.0.0" }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 825,
+  "provider": "google",
+  "source": {
+    "kind": "discovery-doc-diff",
+    "anchor": "googleapis/google-api-nodejs-client discovery/webcontentpublisher-v1.json @ commit 08443b4 (PR #3920)",
+    "detail": "lockstep major bump; per-doc diff verified additive/doc-only"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T09:30:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "revision (none)",
+    "new_version": "revision initial",
+    "checked": "GitHub commit patch for discovery/webcontentpublisher-v1.json fetched and read line by line. The discovery doc discovery/webcontentpublisher-v1.json is a newly added file (+167 lines, 0 deletions) - a brand new API surface at v1.0.0. There is no prior surface for any consumer to have depended on, so nothing can break."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-no-wire-breaking-lockstep-bump",
+    "migration_guide": "All ten google entries in this release cite the same generator PR #3920 (commit 08443b4). The 'BREAKING CHANGES' banner comes from release-please propagating a breaking marker from other packages in the monorepo commit (aiplatform et al.) into every lockstep major bump; this package's own discovery diff was verified line by line from the GitHub commit patch and contains no removal, rename, retype, or new required field. The discovery doc discovery/webcontentpublisher-v1.json is a newly added file (+167 lines, 0 deletions) - a brand new API surface at v1.0.0. There is no prior surface for any consumer to have depended on, so nothing can break. No consumer code change is required; the major version number alone is not a breaking API surface change for this package.",
+    "example_before": "// no prior consumers exist for a brand-new API",
+    "example_after": "// new API surface introduced at v1.0.0; adoption is opt-in, nothing to migrate"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 57,
+  "provider": "anthropic",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "anthropic-sdk-python v0.115.1",
+    "detail": "removed beta webhook event data types (environment/memory_store families)"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v0.115.0",
+    "new_version": "v0.115.1",
+    "checked": "GitHub commit 5e7c431 (chore(api): remove some nonfunctional types from the SDKs) fetched via commits API and read file by file: 8 type modules deleted (beta_webhook_environment_{archived,created,deleted,updated}_event_data, beta_webhook_environment_deleted_event_type, beta_webhook_memory_store_{archived,created,deleted}_event_data), 24 re-exports dropped from types/beta/__init__.py, and beta_webhook_event_data.py no longer unions them. Upstream labels them nonfunctional: the event payloads were never emitted, so no runtime data path depended on these classes. The only breakage surface is import-time: `from anthropic.types.beta import BetaWebhookEnvironmentCreatedEventData` raises ImportError on upgrade."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-type-import",
+    "migration_guide": "Delete imports of the removed Beta webhook event data classes (BetaWebhookEnvironment*EventData, BetaWebhookEnvironmentDeletedEventType, BetaWebhookMemoryStore*EventData) and any type annotations or isinstance checks referencing them. Because the upstream API never emitted these event payloads (they were nonfunctional type stubs), no runtime behavior depends on them: removing the annotation usage is a mechanically safe cleanup. Where an annotation is structurally required, replace with the surviving BetaWebhookEventData union or `object`. Confidence is medium because isinstance branches keyed on these classes need per-site review to confirm the branch body is dead.",
+    "example_before": "from anthropic.types.beta import BetaWebhookEnvironmentCreatedEventData\n\ndef on_event(data: BetaWebhookEnvironmentCreatedEventData) -> None: ...",
+    "example_after": "from anthropic.types.beta import BetaWebhookEventData\n\ndef on_event(data: BetaWebhookEventData) -> None: ..."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 57678,
+  "provider": "paypal",
+  "source": {
+    "kind": "enum-value-removed",
+    "anchor": "GET /v2/invoicing/templates/{template_id}",
+    "detail": "links[].method = CONNECT"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T20:43:04.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/invoicing_v2.json @ fb6f12627e (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/invoicing_v2.json @ 7bbed782",
+    "checked": "Cached snapshots, token-level: OLD error_link_description.method enum = [CONNECT, DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT]; NEW = [GET, POST, PUT, DELETE, PATCH] (CONNECT/HEAD/OPTIONS dropped). The sibling link_description schema keeps the full 8-value enum in BOTH versions — the shrink is scoped to error-body links only. POST /v2/invoicing/invoices/{invoice_id}/send 202: OLD content (application/json + multipart/mixed) -> #/components/schemas/202-response whose only property is links (array of link_description); NEW content -> #/components/schemas/link_description directly, resolved props {href, rel, method}."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "links[].method = CONNECT on GET /v2/invoicing/templates/{template_id}: the error-body HATEOAS link schema (error_link_description) no longer documents CONNECT/HEAD/OPTIONS in its method enum — the documented set is now GET/POST/PUT/DELETE/PATCH (token-verified). Note the non-error link_description schema keeps the full 8-value enum, so this only affects links read from ERROR responses. If your error handler dispatches on link.method for the removed verbs, delete those branches; navigation via the surviving verbs is unchanged.",
+    "example_before": "for (const l of err.links) {\n  if (l.method === 'OPTIONS' || l.method === 'HEAD') continue; // never navigable\n  follow(l);\n}",
+    "example_after": "// CONNECT/HEAD/OPTIONS are no longer documented values for error-body link methods.\nfor (const l of err.links) follow(l);"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 23441,
+  "provider": "stripe",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v1/terminal/refunds",
+    "detail": "amount"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T17:48:52.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2274 (2026-04-22.dahlia)",
+    "new_version": "stripe/openapi v2275 (2026-05-27.dahlia)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): the POST /v1/terminal/refunds request schema in v2274 accepts amount, charge, expand, metadata, payment_intent, reason, refund_application_fee and reverse_transfer; in v2275 only expand remains. The endpoint is documented as an internal endpoint for terminal use. The standard POST /v1/refunds endpoint retains all seven removed properties under identical names in both versions, and POST /v1/terminal/readers/{reader}/refund_payment also keeps its parameter set. Seven records are per-property projections of one request-surface removal."
+  },
+  "alternative_data_source": "POST /v1/refunds carries the same property names; POST /v1/terminal/readers/{reader}/refund_payment covers reader-driven refunds.",
+  "fix": {
+    "strategy": "replace-endpoint-call",
+    "migration_guide": "Direct calls to POST /v1/terminal/refunds can no longer pass amount (only expand is accepted). Move the refund creation to the standard POST /v1/refunds endpoint (stripe.refunds.create), which accepts the same property names, or to POST /v1/terminal/readers/{reader}/refund_payment when the refund should be driven through a reader. Property names are unchanged, so the payload can be carried over as-is.",
+    "example_before": "await stripeFetch('POST', '/v1/terminal/refunds', {\n  charge: chargeId,\n  amount: refundAmount,\n  reason: 'requested_by_customer',\n});",
+    "example_after": "await stripe.refunds.create({\n  charge: chargeId,\n  amount: refundAmount,\n  reason: 'requested_by_customer',\n});"
+  }
+}

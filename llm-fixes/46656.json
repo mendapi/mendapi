@@ -1,0 +1,25 @@
+{
+  "change_id": 46656,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-became-nullable",
+    "anchor": "POST /v1/payment_records/{id}/report_payment_attempt_guaranteed",
+    "detail": "payment_method_details.boleto.tax_id"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T18:28:18.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2182 (2026-02-24.pisces)",
+    "new_version": "stripe/openapi v2183 (2026-02-24.pisces)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): v2183 introduces a dedicated projection schema payment_method_details_payment_record_boleto with tax_id nullable:true and not in required (in v2182 the payment-record surfaces reuse the shared boleto schema whose tax_id is required). The shared payment_method_boleto and payment_method_details_boleto schemas keep tax_id required and non-nullable in both versions, so only payment_records / payment_attempt_records read surfaces are affected. Ten records are per-operation projections of this single schema change."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "add-null-guard-on-read",
+    "migration_guide": "payment_method_details.boleto.tax_id can now be null on POST /v1/payment_records/{id}/report_payment_attempt_guaranteed. Guard reads of the field on payment_records and payment_attempt_records surfaces (optional chaining or an explicit null check) before using it as a document identifier. Charge-surface boleto objects are unaffected; only the payment-record projection relaxed the field.",
+    "example_before": "const rec = await stripe.paymentRecords.retrieve(id);\nconst taxId = rec.payment_method_details.boleto.tax_id.trim();",
+    "example_after": "const rec = await stripe.paymentRecords.retrieve(id);\nconst taxId = rec.payment_method_details.boleto.tax_id?.trim() ?? null;\nif (taxId === null) {\n  // tax_id is nullable on payment-record surfaces as of 2026-02-24.pisces\n}"
+  }
+}

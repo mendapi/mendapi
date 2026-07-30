@@ -1,0 +1,25 @@
+{
+  "change_id": 51485,
+  "provider": "paypal",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v2/checkout/orders/{id}/confirm-payment-source",
+    "detail": "payment_source.pix.qr_details"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T19:11:55.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/checkout_orders_v2.json @ a54ed770ae (2025-07-16)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/checkout_orders_v2.json @ 9f0f52810a (2026-04-07)",
+    "checked": "Cached snapshots, token-level: payment_source/payment_source_response property lists lose swish and pix (17->15, 18->16); schemas swish/swish_request/experience_context_swish/pix/pix_request deleted (pix token 6->0; the two surviving swish tokens are dangling {\"required\":[\"swish\"]} oneOf branches with no backing property). google_pay_request properties 8->7 (attributes dropped, google_pay_attributes schema deleted; google_pay response schema unchanged). processing_instruction spec-wide 18->0, most_recent_errors 1->0, both without successor. crypto/crypto_request schemas were empty stubs in the old snapshot and gained full definitions plus required country_code/name/experience_context in the new one. POST /v2/checkout/orders/order-update-callback: 200 response properties {id, purchase_units} -> {id}; 400/422 error bodies {name,message,details,debug_id,links} -> {name,message,details}; shipping_option.selected joined the request required list."
+  },
+  "alternative_data_source": "No successor field; other payment_source methods (including the new crypto source) remain available — choosing one is a business decision.",
+  "fix": {
+    "strategy": "remove-discontinued-payment-source",
+    "migration_guide": "The pix payment source was removed from the Orders v2 API (POST /v2/checkout/orders/{id}/confirm-payment-source): the payment_source.pix property and its pix/pix_request schemas no longer exist (spec token count 6 -> 0). Delete code paths that send payment_source.pix and reads of payment_source.pix.qr_details from order responses. Selecting a replacement payment method for Brazilian buyers is a business decision.",
+    "example_before": "const order = await createOrder({ payment_source: { pix: { name, tax_info } } });\nconst status = order.payment_source.pix.expiry_time;",
+    "example_after": "// pix was removed from Orders v2 — this payment path no longer exists.\n// Remove the pix branch; choose an alternative payment method per product decision."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 5223,
+  "provider": "vercel",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "GET /v1/installations/{integrationConfigurationId}/resources/{resourceId} -> 200",
+    "detail": "protocolSettings.experimentation.edgeConfigTokenId"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T07:54:20.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "v1.28.8",
+    "new_version": "v1.28.9",
+    "checked": "Cached vercel OAS snapshots: edgeConfigSyncingEnabled and edgeConfigTokenId present under GET /v1/installations/{integrationConfigurationId}/resources/{resourceId} experimentation settings in v1.28.8, absent from that endpoint in v1.28.9. Both fields remain present on the sibling list endpoint GET /v1/installations/{integrationConfigurationId}/resources in v1.28.9 and v1.28.10."
+  },
+  "alternative_data_source": "GET /v1/installations/{integrationConfigurationId}/resources (list endpoint) still returns protocolSettings.experimentation.edgeConfigSyncingEnabled and edgeConfigTokenId per resource.",
+  "fix": {
+    "strategy": "replace-read-with-list-endpoint",
+    "migration_guide": "The experimentation protocol settings fields were dropped from the single-resource read but survive on the list endpoint for the same installation. Code that fetched one resource by id to read edgeConfigSyncingEnabled or edgeConfigTokenId should instead call the resources list endpoint and select the matching resource by id; the fields are returned there with identical semantics. This is a mechanical read-path substitution: same auth, same installation scope, one extra filter step over the returned array.",
+    "example_before": "const res = await fetchJson(`/v1/installations/${icId}/resources/${resourceId}`);\nconst syncing = res.protocolSettings.experimentation.edgeConfigSyncingEnabled;",
+    "example_after": "const all = await fetchJson(`/v1/installations/${icId}/resources`);\nconst res = all.resources.find((r) => r.id === resourceId);\nconst syncing = res.protocolSettings.experimentation.edgeConfigSyncingEnabled;"
+  }
+}

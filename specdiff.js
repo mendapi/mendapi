@@ -1,0 +1,779 @@
+#!/usr/bin/env node
+// mendapi specdiff — deterministic OpenAPI spec diff engine.
+// Zero npm dependencies: node:fs only. Zero network — reads local files.
+//
+// This is the Change Intelligence endgame foundation (GOAL track d): instead
+// of trusting upstream changelog prose, diff two versions of an OpenAPI spec
+// and emit structured, evidence-backed change records anchored to the API
+// surface itself (path / method / parameter / property / enum value).
+//
+// Detected change kinds (each record carries a JSON-pointer-style anchor):
+//   path-removed            breaking   whole path gone
+//   path-added              additive
+//   operation-removed       breaking   method gone from an existing path
+//   operation-added         additive
+//   param-removed           breaking   callers may still send it / rely on it
+//   param-added-required    breaking   existing calls now rejected
+//   param-added-optional    additive
+//   param-now-required      breaking   optional -> required flip
+//   request-prop-removed    breaking   senders of the property break
+//   request-prop-added-required breaking
+//   request-prop-added      additive
+//   response-prop-removed   breaking   readers of the property break
+//   response-prop-added     additive
+//   enum-value-removed      breaking   senders of the value get rejected
+//   enum-value-added        additive   exhaustive readers need a new branch
+//                                      (mendable: mirror-existing-branch packs)
+//   request-prop-type-changed   breaking   senders now send the wrong type
+//   response-prop-type-changed  breaking   readers now parse the wrong type
+//   response-prop-became-nullable   breaking   readers may not handle null
+//   request-prop-became-not-nullable breaking  senders of null get rejected
+//   response-status-removed  breaking  a 2xx status disappeared: callers
+//                                      branching on it stop matching. 4xx/5xx
+//                                      churn is deliberately silent.
+//   param-type-narrowed      breaking   a parameter's accepted JSON type set
+//                                      shrank (e.g. oneOf[string,boolean] ->
+//                                      string): senders of the dropped type
+//                                      now get rejected. Widening (types
+//                                      added) and unknown/unresolvable sides
+//                                      are deliberately silent.
+//   request-prop-pattern-added  breaking   a pattern constraint appeared on a
+//                                      request prop that had none: previously
+//                                      valid values now get rejected. Pattern
+//                                      rewrites and response-side pattern
+//                                      churn are deliberately silent.
+//   response-prop-became-optional   warning    field may now be absent; most
+//                                              defensive readers are unaffected,
+//                                              so this is graded warning (not
+//                                              breaking) to honor the
+//                                              false-positive-rate-first rule.
+//                                              Records carry warning:true.
+//
+// Deliberately NOT reported: format-only churn (same JSON type, different
+// `format` annotation, e.g. uri -> none). Spec generators flip formats
+// constantly without any wire-level semantic change; flagging them as
+// breaking would violate the false-positive-rate-first rule.
+//
+// Design rules:
+//   - Deterministic only. No LLM in this layer; semantics stay explainable.
+//   - Local $ref resolution (components/*) with cycle guard; property paths
+//     flattened to a bounded depth so evidence stays readable.
+//   - Conservative: anything the walker cannot resolve is skipped silently
+//     rather than guessed at (precision over coverage).
+//
+// Usage:
+//   node app/specdiff.js <old-spec.json> <new-spec.json> [--json <out.json>]
+// Exit codes: 0 = diff produced (possibly empty), 1 = usage/parse error.
+
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
+const MAX_PROP_DEPTH = 3;
+// Deep-scan cap for the request-side tightening pass (see
+// diffDeepRequestTightenings): deep enough to reach real-world nesting
+// (PayPal billing subscriber card fields sit at depth 4-6), bounded so
+// pathological/recursive schemas cannot blow up (cycle guard also applies).
+const DEEP_PROP_DEPTH = 8;
+
+// ---------- $ref resolution ----------
+
+function resolveRef(spec, ref, seen) {
+  if (typeof ref !== 'string' || !ref.startsWith('#/')) return null;
+  if (seen.has(ref)) return null; // cycle guard
+  seen.add(ref);
+  let node = spec;
+  for (const part of ref.slice(2).split('/')) {
+    if (node == null || typeof node !== 'object') return null;
+    node = node[part.replace(/~1/g, '/').replace(/~0/g, '~')];
+  }
+  return node ?? null;
+}
+
+function deref(spec, schema, seen = new Set()) {
+  if (schema == null || typeof schema !== 'object') return schema;
+  if (schema.$ref) {
+    const target = resolveRef(spec, schema.$ref, seen);
+    return target ? deref(spec, target, seen) : null;
+  }
+  return schema;
+}
+
+// Flatten a schema's properties into dot paths (bounded depth).
+// Returns Map<propPath, {required: bool, enum: string[]|null, type: string|null, nullable: bool|null}>.
+function flattenProps(spec, schema, prefix = '', depth = 0, seen = new Set(), out = new Map(), maxDepth = MAX_PROP_DEPTH) {
+  const s = deref(spec, schema, seen);
+  if (!s || typeof s !== 'object' || depth > maxDepth) return out;
+
+  // Unwrap arrays: diff the item shape under the same path with [] marker.
+  if (s.type === 'array' && s.items) {
+    return flattenProps(spec, s.items, prefix ? `${prefix}[]` : '[]', depth, seen, out, maxDepth);
+  }
+  // Merge allOf conservatively (union of members' properties).
+  if (Array.isArray(s.allOf)) {
+    for (const member of s.allOf) flattenProps(spec, member, prefix, depth, seen, out, maxDepth);
+  }
+  // Descend oneOf/anyOf unions: a property present in ANY branch is part of the
+  // API surface, so it must not be reported as removed when a generator wraps
+  // the schema in a union (false-positive killer). Required flags across union
+  // branches are unreliable (a prop may be optional-or-absent in sibling
+  // branches), so properties discovered through a union are marked
+  // required=false unless every branch that defines them requires them.
+  const unionBranches = [];
+  for (const kw of ['oneOf', 'anyOf']) {
+    if (!Array.isArray(s[kw])) continue;
+    for (const member of s[kw]) {
+      unionBranches.push(flattenProps(spec, member, prefix, depth, new Set(seen), new Map(), maxDepth));
+    }
+  }
+  if (unionBranches.length > 0) {
+    // Merge branch maps. A prop counts as required only when it is present
+    // AND required in every branch: a prop required inside just one branch
+    // (e.g. a newly added union alternative) is conditionally required for
+    // callers who pick that branch -- reporting it as a hard requirement
+    // fabricates breaking changes. Enums merge as the UNION of values: a
+    // value accepted by any branch is accepted on the wire, so narrowing in
+    // one branch while another keeps (or drops) the constraint must never
+    // surface as enum-value-removed. When any branch leaves the prop
+    // unconstrained, the effective constraint is none (enum=null).
+    const merged = new Map();
+    for (const branch of unionBranches) {
+      for (const [path, meta] of branch) {
+        if (!merged.has(path)) {
+          merged.set(path, { ...meta, branches: 1 });
+        } else {
+          const prev = merged.get(path);
+          merged.set(path, {
+            required: prev.required && meta.required,
+            enum: prev.enum && meta.enum ? [...new Set([...prev.enum, ...meta.enum])] : null,
+            type: prev.type === meta.type ? prev.type : null,
+            nullable: prev.nullable === meta.nullable ? prev.nullable : null,
+            // Pattern across union branches is unreliable evidence (a value
+            // may satisfy a sibling branch with no pattern): drop to unknown
+            // unless every branch agrees on the same pattern.
+            pattern: prev.pattern === meta.pattern ? prev.pattern : null,
+            branches: prev.branches + 1,
+          });
+        }
+      }
+    }
+    for (const [path, meta] of merged) {
+      const viaUnion = {
+        required: meta.required && meta.branches === unionBranches.length,
+        enum: meta.branches === unionBranches.length ? meta.enum : null,
+        type: meta.type,
+        nullable: meta.nullable,
+        pattern: meta.branches === unionBranches.length ? (meta.pattern ?? null) : null,
+        viaUnion: true,
+      };
+      if (out.has(path)) {
+        const prev = out.get(path);
+        out.set(path, {
+          required: prev.required && viaUnion.required,
+          enum: prev.enum && viaUnion.enum ? [...new Set([...prev.enum, ...viaUnion.enum])] : null,
+          type: prev.type === viaUnion.type ? prev.type : null,
+          nullable: prev.nullable === viaUnion.nullable ? prev.nullable : null,
+          pattern: prev.pattern === viaUnion.pattern ? (prev.pattern ?? null) : null,
+          viaUnion: true,
+        });
+      } else {
+        out.set(path, viaUnion);
+      }
+    }
+  }
+  // Parent-level `required` must reach props contributed by allOf members
+  // (and union branches): JSON Schema applies `required` at the level it is
+  // declared, regardless of where the property definition itself lives.
+  // Without this back-fill, a generator restructuring flat properties into
+  // allOf branches while KEEPING the parent required list fabricates
+  // became-optional warnings, and a genuinely new parent-required prop whose
+  // definition sits in an allOf member gets downgraded to non-breaking
+  // prop-added (PayPal checkout_orders `items/op`; oasdiff
+  // new-required-request-property). Loop 378 adjudication.
+  if (Array.isArray(s.required)) {
+    for (const name of s.required) {
+      const rPath = prefix ? `${prefix}.${name}` : name;
+      const existing = out.get(rPath);
+      if (existing && !existing.required) out.set(rPath, { ...existing, required: true });
+    }
+  }
+  const props = s.properties;
+  if (!props || typeof props !== 'object') return out;
+  const required = new Set(Array.isArray(s.required) ? s.required : []);
+  for (const [name, sub] of Object.entries(props)) {
+    const path = prefix ? `${prefix}.${name}` : name;
+    const subResolved = deref(spec, sub, new Set(seen));
+    const enumVals = subResolved && Array.isArray(subResolved.enum)
+      ? subResolved.enum.map(String)
+      : null;
+    const { type, nullable } = normalizeType(subResolved);
+    const pattern = subResolved && typeof subResolved.pattern === 'string'
+      ? subResolved.pattern
+      : null;
+    // maxLength is carried only when explicitly declared: absent = unknown
+    // (never inferred as "unbounded" -- see the back-fill adjudication on
+    // param bounds, Loop 380). Loop 397.
+    const maxLength = subResolved && typeof subResolved.maxLength === 'number'
+      ? subResolved.maxLength
+      : null;
+    // maxItems: same explicit-only rule. Captured on the array node itself
+    // (before item unwrapping) so array-shaped properties carry their own
+    // cardinality bound. Loop 399.
+    const maxItems = subResolved && typeof subResolved.maxItems === 'number'
+      ? subResolved.maxItems
+      : null;
+    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems });
+    if (depth < maxDepth) flattenProps(spec, sub, path, depth + 1, new Set(seen), out, maxDepth);
+  }
+  return out;
+}
+
+// Normalize a schema node's JSON type + nullability across OAS 3.0 / 3.1.
+// Returns { type: string|null, nullable: bool|null }. Format annotations are
+// deliberately ignored (format-only churn is generator noise, not breaking).
+// null means "unknown" -- diff layer must skip comparisons on unknowns.
+function normalizeType(s) {
+  if (!s || typeof s !== 'object') return { type: null, nullable: null };
+  let type = null;
+  let nullable = null;
+  if (Array.isArray(s.type)) { // OAS 3.1 type arrays, e.g. ["string","null"]
+    const nonNull = s.type.filter((t) => t !== 'null').map(String).sort();
+    type = nonNull.length ? nonNull.join('|') : null;
+    nullable = s.type.includes('null');
+  } else if (typeof s.type === 'string') {
+    type = s.type;
+    nullable = s.nullable === true; // OAS 3.0 nullable keyword
+  } else if (s.nullable === true) {
+    nullable = true; // nullable declared without a type: keep type unknown
+  }
+  return { type, nullable };
+}
+
+// ---------- extraction ----------
+
+// Resolve a parameter schema to the SET of JSON types it accepts.
+// Handles oneOf/anyOf unions (union of member type sets) and OAS 3.1 type
+// arrays. Returns null (= unknown) when any part cannot be resolved to a
+// concrete type: the diff layer must skip comparisons on unknowns rather
+// than guess (precision over coverage). Format annotations are ignored.
+function paramTypeSet(spec, schema, seen = new Set(), depth = 0) {
+  if (depth > 3) return null;
+  const s = deref(spec, schema, seen);
+  if (!s || typeof s !== 'object') return null;
+  const out = new Set();
+  let sawBranch = false;
+  for (const kw of ['oneOf', 'anyOf']) {
+    if (!Array.isArray(s[kw])) continue;
+    for (const member of s[kw]) {
+      sawBranch = true;
+      const sub = paramTypeSet(spec, member, new Set(seen), depth + 1);
+      if (!sub) return null; // any unknown branch poisons the whole set
+      for (const t of sub) out.add(t);
+    }
+  }
+  if (Array.isArray(s.type)) { // OAS 3.1 type arrays
+    for (const t of s.type) out.add(String(t));
+  } else if (typeof s.type === 'string') {
+    out.add(s.type);
+  } else if (!sawBranch) {
+    return null; // untyped schema: unknown, stay silent
+  }
+  return out.size ? out : null;
+}
+
+// Explicit string-constraint evidence on a parameter schema. Only a plain
+// (non-union) schema counts: constraints seen through oneOf/anyOf branches
+// are unreliable (a value may satisfy a sibling branch) and resolve to null
+// (= unknown, diff layer must skip). Absent keywords also resolve to null --
+// oasdiff infers "minLength 0" for an absent lower bound, but absence is not
+// evidence of a prior contract, and firing on absent->N fabricates breaking
+// changes out of documentation back-fill (PayPal payments_v2 headers grew
+// minLength 1 + maxLength 10000 annotations on parameters that were always
+// non-empty in practice). Loop 380 adjudication.
+function paramConstraints(spec, schema) {
+  const none = { minLength: null, maxLength: null, pattern: null };
+  const s = deref(spec, schema, new Set());
+  if (!s || typeof s !== 'object') return none;
+  if (Array.isArray(s.oneOf) || Array.isArray(s.anyOf)) return none;
+  return {
+    minLength: typeof s.minLength === 'number' ? s.minLength : null,
+    maxLength: typeof s.maxLength === 'number' ? s.maxLength : null,
+    pattern: typeof s.pattern === 'string' ? s.pattern : null,
+  };
+}
+
+// Patterns that accept every practical string value reject nothing: adding
+// one is annotation churn, not a contract change. Firing on these (PayPal
+// stamps `^.*$` / `^[\S\s]*$` on ids and headers wholesale) would violate
+// the false-positive-rate-first rule.
+const VACUOUS_PATTERNS = new Set(['^.*$', '.*', '^[\\S\\s]*$', '^[\\s\\S]*$', '^(.*)$']);
+
+function extractOperations(spec) {
+  // Map<`${method} ${path}`, { params: Map, requestProps: Map, responseProps: Map<status, Map> }>
+  const ops = new Map();
+  const paths = spec.paths || {};
+  for (const [path, item] of Object.entries(paths)) {
+    if (!item || typeof item !== 'object') continue;
+    const pathLevelParams = Array.isArray(item.parameters) ? item.parameters : [];
+    for (const method of HTTP_METHODS) {
+      const op = item[method];
+      if (!op || typeof op !== 'object') continue;
+      const key = `${method.toUpperCase()} ${path}`;
+
+      const params = new Map();
+      const allParams = [...pathLevelParams, ...(Array.isArray(op.parameters) ? op.parameters : [])];
+      for (const raw of allParams) {
+        const p = deref(spec, raw, new Set());
+        if (!p || !p.name) continue;
+        params.set(`${p.in || 'query'}:${p.name}`, {
+          required: !!p.required,
+          types: paramTypeSet(spec, p.schema),
+          ...paramConstraints(spec, p.schema),
+        });
+      }
+
+      let requestProps = new Map();
+      let requestPropsDeep = new Map();
+      const reqSchema = op.requestBody?.content
+        ? Object.values(op.requestBody.content)[0]?.schema
+        : null;
+      if (reqSchema) {
+        requestProps = flattenProps(spec, reqSchema);
+        // Deep request map for the tightening pass (see
+        // diffDeepRequestTightenings). Request side only: sender-breaking
+        // tightenings hide at depth 4+ in generator-restructured specs
+        // (PayPal billing subscriber card.number new-required, vault venmo
+        // shipping.name prop removals, partner-referrals documents.type enum
+        // value removals -- Loop 383/385 adjudicated real gaps beyond
+        // MAX_PROP_DEPTH). Response side stays at the shallow cap: deep
+        // response churn is reader-tolerant annotation noise and scanning it
+        // would violate the false-positive-rate-first rule.
+        requestPropsDeep = flattenProps(spec, reqSchema, '', 0, new Set(), new Map(), DEEP_PROP_DEPTH);
+      }
+
+      const responseProps = new Map();
+      const responseStatuses = new Set();
+      for (const [status, resp] of Object.entries(op.responses || {})) {
+        responseStatuses.add(status);
+        const r = deref(spec, resp, new Set());
+        const schema = r?.content ? Object.values(r.content)[0]?.schema : null;
+        if (schema) responseProps.set(status, flattenProps(spec, schema));
+      }
+
+      ops.set(key, { params, requestProps, requestPropsDeep, responseProps, responseStatuses, hasBody: !!op.requestBody });
+    }
+  }
+  return ops;
+}
+
+// ---------- diff ----------
+
+// Parent of "a.b[].c" is "a.b" (array markers stripped); root props have
+// no parent. Used to decide whether a new required prop actually breaks
+// existing callers.
+function parentOf(prop) {
+  const i = prop.lastIndexOf('.');
+  if (i === -1) return null;
+  return prop.slice(0, i).replace(/\[\]$/, '');
+}
+
+function diffPropMaps(oldProps, newProps, surface, anchor, records) {
+  for (const [prop, meta] of oldProps) {
+    if (!newProps.has(prop)) {
+      records.push({
+        kind: `${surface}-prop-removed`, breaking: true,
+        anchor, detail: prop,
+      });
+      continue;
+    }
+    const next = newProps.get(prop);
+    // Type change: only when both sides have a known, concrete type.
+    // Format-only churn never reaches here (normalizeType drops formats).
+    if (meta.type && next.type && meta.type !== next.type) {
+      records.push({
+        kind: `${surface}-prop-type-changed`, breaking: true,
+        anchor, detail: `${prop}: ${meta.type} -> ${next.type}`,
+      });
+    }
+    // Nullability: direction of danger depends on the surface.
+    // response became nullable = readers may choke on null (breaking).
+    // request became NOT nullable = senders of null now rejected (breaking).
+    // Only compare when both sides are known (null = unknown, skip).
+    if (meta.nullable !== null && next.nullable !== null && meta.nullable !== next.nullable) {
+      if (surface === 'response' && next.nullable) {
+        records.push({ kind: 'response-prop-became-nullable', breaking: true, anchor, detail: prop });
+      } else if (surface === 'request' && meta.nullable && !next.nullable) {
+        records.push({ kind: 'request-prop-became-not-nullable', breaking: true, anchor, detail: prop });
+      }
+      // Widening directions (request became nullable / response became
+      // non-nullable) are non-breaking for consumers: skipped, low signal.
+    }
+    // Pattern constraint ADDED on a request prop: values that used to pass
+    // now get rejected by validation -> breaking for senders. Only fired when
+    // the old side verifiably had NO pattern and neither side's evidence came
+    // through a union merge (union-derived patterns are approximations).
+    // Pattern REWRITES (old pattern -> new pattern) and response-side pattern
+    // churn are deliberately silent: comparing regex languages for narrowing
+    // is undecidable in general, and generators shuffle response annotations
+    // constantly -- reporting those would violate the false-positive-first
+    // rule. oasdiff's request-property-pattern-added is the reference case
+    // (vercel v1.28.1->v1.28.2 POST /v1/connect/connectors icon).
+    if (surface === 'request' && meta.pattern === null && typeof next.pattern === 'string'
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({
+        kind: 'request-prop-pattern-added', breaking: true,
+        anchor, detail: `${prop} pattern ${next.pattern}`,
+      });
+    }
+    // Enum INTRODUCED on a request prop that verifiably had none: a finite
+    // value set now rejects every previously-valid value outside it ->
+    // breaking for senders. Unlike numeric-bound back-fill (absent minLength
+    // -> explicit, adjudicated annotation churn in the param work), an enum
+    // is never a vacuous constraint -- it always excludes values. Fired only
+    // when the old side has a KNOWN type and no enum, and neither side's
+    // evidence came through a union merge (union-derived enums are
+    // approximations). Response-side enum introduction narrows what readers
+    // can receive = non-breaking for consumers, deliberately silent. oasdiff
+    // request-property-became-enum is the reference case (PayPal vault
+    // wallet_base usage_type: no enum -> [MERCHANT, PLATFORM]). Loop 384.
+    if (surface === 'request' && meta.enum === null && meta.type && next.enum
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({
+        kind: 'request-prop-became-enum', breaking: true,
+        anchor, detail: `${prop} enum [${next.enum.join(', ')}]`,
+      });
+    }
+    // Request prop maxLength DECREASED: values that used to pass length
+    // validation now get rejected -> breaking for senders. Fired ONLY on
+    // explicit-to-explicit evidence (both sides declare a numeric maxLength;
+    // absent = unknown = silent, mirroring the param-side rule and the
+    // back-fill adjudication -- oasdiff infers bounds for absent keywords,
+    // we never do). Union-derived evidence never fires (union merges drop
+    // the bound to unknown by construction). Increases and every
+    // response-side direction are widening/reader-tolerant churn:
+    // deliberately silent. Reference case: PayPal checkout_orders
+    // purchase_units description 3000 -> 127, soft_descriptor 1000 -> 22,
+    // items[].name 3000 -> 127 (Loop 396 adjudicated real specdiff miss).
+    // Loop 397.
+    if (surface === 'request'
+        && typeof meta.maxLength === 'number' && typeof next.maxLength === 'number'
+        && next.maxLength < meta.maxLength
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({
+        kind: 'request-prop-max-length-decreased', breaking: true,
+        anchor, detail: `${prop}: maxLength ${meta.maxLength} -> ${next.maxLength}`,
+      });
+    }
+    // Request prop maxItems DECREASED: arrays that used to pass cardinality
+    // validation now get rejected -> breaking for senders. Exact same
+    // fail-closed shape as request-prop-max-length-decreased above:
+    // explicit-to-explicit numeric evidence only (absent = unknown = silent,
+    // never back-filled), union-derived evidence never fires (union merges
+    // drop the bound by construction), increases and every response-side
+    // direction are widening/reader-tolerant churn: deliberately silent.
+    // Reference case: PayPal checkout_orders shipping.options maxItems
+    // 30 -> 10 (Loop 398 adjudicated real specdiff miss). Loop 399.
+    if (surface === 'request'
+        && typeof meta.maxItems === 'number' && typeof next.maxItems === 'number'
+        && next.maxItems < meta.maxItems
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({
+        kind: 'request-prop-max-items-decreased', breaking: true,
+        anchor, detail: `${prop}: maxItems ${meta.maxItems} -> ${next.maxItems}`,
+      });
+    }
+    if (meta.enum && next.enum) {
+      for (const v of meta.enum) {
+        if (!next.enum.includes(v)) {
+          records.push({ kind: 'enum-value-removed', breaking: true, anchor, detail: `${prop} = ${v}` });
+        }
+      }
+      for (const v of next.enum) {
+        if (!meta.enum.includes(v)) {
+          records.push({ kind: 'enum-value-added', breaking: false, anchor, detail: `${prop} = ${v}` });
+        }
+      }
+    }
+    // Request prop flipped optional -> required: existing callers that omit
+    // the field now get rejected -> breaking for senders. Required lists are
+    // explicit in OpenAPI, so absent-on-old is real evidence (not back-fill
+    // like numeric bounds). Fired only when neither side's required flag came
+    // through a oneOf/anyOf union merge (union-derived flags are conservative
+    // approximations, see the union merge above). Response-side optional ->
+    // required is a STRONGER guarantee for readers = non-breaking, silent.
+    // oasdiff's request-property-became-required is the reference case
+    // (PayPal billing_subscriptions subscriber card.number/expiry). Loop 393.
+    if (surface === 'request' && !meta.required && next.required
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({ kind: 'request-prop-became-required', breaking: true, anchor, detail: prop });
+    }
+    // Response prop required -> optional: the field may now be absent from
+    // payloads. Defensive readers (optional chaining, null checks) are
+    // unaffected, so this is graded WARNING, not breaking -- flagging it as
+    // breaking would fire on every generator required-list shuffle and
+    // violate the false-positive-rate-first rule. Skipped when either side's
+    // required flag came through a oneOf/anyOf union merge: union-derived
+    // required flags are conservative approximations, not evidence.
+    if (surface === 'response' && meta.required && !next.required
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({ kind: 'response-prop-became-optional', breaking: false, warning: true, anchor, detail: prop });
+    }
+  }
+  for (const [prop, meta] of newProps) {
+    if (oldProps.has(prop)) continue;
+    // A required prop nested inside a NEWLY-ADDED parent subtree is only
+    // required for callers who opt into the new (optional) parent -- existing
+    // requests keep working. Reporting it as added-required fabricates
+    // breaking changes (Vercel firewall rulesets[].name shape). Breaking-ness
+    // is decided at the topmost new node: required only counts when every
+    // ancestor already existed in the old shape (or the prop is root-level).
+    const parent = parentOf(prop);
+    const parentIsNew = parent !== null && !oldProps.has(parent);
+    if (surface === 'request' && meta.required && !parentIsNew) {
+      records.push({ kind: 'request-prop-added-required', breaking: true, anchor, detail: prop });
+    } else {
+      records.push({ kind: `${surface}-prop-added`, breaking: false, anchor, detail: prop });
+    }
+  }
+}
+
+// Deep request-side tightening pass (Loop 386). The shallow diffPropMaps pass
+// is bounded at MAX_PROP_DEPTH to keep response-side noise out, but three
+// adjudicated PayPal real gaps proved sender-breaking tightenings hide below
+// that cap in generator-restructured request bodies:
+//   - new required prop at depth 4+ (billing subscriber card.number/expiry)
+//   - prop removed at depth 4+ (vault venmo shipping.name family)
+//   - enum value removed at depth 4+ (partner-referrals documents.type
+//     BUSINESS_REGISTRATION)
+// This pass diffs the DEEP request maps but only for prop paths INVISIBLE to
+// the shallow pass (present in neither side's shallow map): everything the
+// shallow pass can see keeps its existing adjudication, so shallow behaviour
+// is bit-for-bit unchanged. Fail-closed guards mirror the shallow pass:
+// union-derived evidence never fires, removal is reported at the topmost
+// removed node only, and required-inside-new-subtree stays additive.
+function diffDeepRequestTightenings(oldDeep, newDeep, oldShallow, newShallow, anchor, records) {
+  const invisible = (prop) => !oldShallow.has(prop) && !newShallow.has(prop);
+  for (const [prop, meta] of oldDeep) {
+    if (!invisible(prop)) continue;
+    if (!newDeep.has(prop)) {
+      // Report the topmost removed node only: if the parent subtree is gone
+      // too, the parent (or the shallow pass) carries the report.
+      const parent = parentOf(prop);
+      if (parent !== null && oldDeep.has(parent) && !newDeep.has(parent)) continue;
+      records.push({ kind: 'request-prop-removed', breaking: true, anchor, detail: prop });
+      continue;
+    }
+    const next = newDeep.get(prop);
+    // Optional -> required flip below the shallow cap: same semantics as the
+    // shallow request-prop-became-required (senders omitting the field now
+    // rejected). Same fail-closed guards: union-derived flags never fire, and
+    // required lists are explicit evidence. Loop 393.
+    if (!meta.required && next.required && !meta.viaUnion && !next.viaUnion) {
+      records.push({ kind: 'request-prop-became-required', breaking: true, anchor, detail: prop });
+    }
+    // Pattern ADDED on a deep request prop: same semantics and fail-closed
+    // guards as the shallow request-prop-pattern-added branch (old side
+    // verifiably had NO pattern, neither side via union merge; rewrites and
+    // response churn deliberately silent -- the deep pass is request-only by
+    // construction). Reference case: PayPal checkout_orders
+    // purchase_units[].supplementary_data.card.level_3.line_items[].image_url
+    // pattern added at depth 5+, beyond the shallow MAX_PROP_DEPTH=3 cap
+    // (Loop 398 adjudicated real tightening, Loop 400).
+    if (meta.pattern === null && typeof next.pattern === 'string'
+        && !meta.viaUnion && !next.viaUnion) {
+      records.push({
+        kind: 'request-prop-pattern-added', breaking: true,
+        anchor, detail: `${prop} pattern ${next.pattern}`,
+      });
+    }
+    // Enum value removed: explicit-to-explicit evidence only, and never
+    // through a union merge (union enums are approximations).
+    if (meta.enum && next.enum && !meta.viaUnion && !next.viaUnion) {
+      for (const v of meta.enum) {
+        if (!next.enum.includes(v)) {
+          records.push({ kind: 'enum-value-removed', breaking: true, anchor, detail: `${prop} = ${v}` });
+        }
+      }
+    }
+  }
+  for (const [prop, meta] of newDeep) {
+    if (!invisible(prop) || oldDeep.has(prop)) continue;
+    // Required prop nested inside a newly-added parent subtree only binds
+    // callers who opt into the new parent: stays silent here (the shallow
+    // pass already reports the topmost new node as additive when visible).
+    const parent = parentOf(prop);
+    const parentIsNew = parent !== null && !oldDeep.has(parent);
+    if (meta.required && !parentIsNew && !meta.viaUnion) {
+      records.push({ kind: 'request-prop-added-required', breaking: true, anchor, detail: prop });
+    }
+  }
+}
+
+export function diffSpecs(oldSpec, newSpec) {
+  const records = [];
+  const oldOps = extractOperations(oldSpec);
+  const newOps = extractOperations(newSpec);
+
+  const oldPaths = new Set([...oldOps.keys()].map((k) => k.split(' ')[1]));
+  const newPaths = new Set([...newOps.keys()].map((k) => k.split(' ')[1]));
+
+  for (const path of oldPaths) {
+    if (!newPaths.has(path)) records.push({ kind: 'path-removed', breaking: true, anchor: path, detail: '' });
+  }
+  for (const path of newPaths) {
+    if (!oldPaths.has(path)) records.push({ kind: 'path-added', breaking: false, anchor: path, detail: '' });
+  }
+
+  for (const [key, oldOp] of oldOps) {
+    const path = key.split(' ')[1];
+    if (!newOps.has(key)) {
+      if (newPaths.has(path)) records.push({ kind: 'operation-removed', breaking: true, anchor: key, detail: '' });
+      continue; // path-removed already recorded
+    }
+    const newOp = newOps.get(key);
+
+    for (const [pkey, meta] of oldOp.params) {
+      if (!newOp.params.has(pkey)) {
+        records.push({ kind: 'param-removed', breaking: true, anchor: key, detail: pkey });
+      } else {
+        const next = newOp.params.get(pkey);
+        if (!meta.required && next.required) {
+          records.push({ kind: 'param-now-required', breaking: true, anchor: key, detail: pkey });
+        }
+        // Parameter type-set narrowing: a type accepted before is gone now
+        // (e.g. oneOf[string,boolean] -> string). Senders of the dropped type
+        // get rejected -> breaking. Only fired when BOTH sides resolved to
+        // concrete type sets (null = unknown, skip) and the removal is real
+        // (widening / identical sets stay silent). oasdiff's
+        // request-parameter-list-of-types-narrowed is the reference case
+        // (vercel v1.28.5->v1.28.6 GET /v9/projects/{idOrName} idOrName).
+        if (meta.types && next.types) {
+          const dropped = [...meta.types].filter((t) => !next.types.has(t));
+          if (dropped.length && dropped.length < meta.types.size) {
+            records.push({
+              kind: 'param-type-narrowed', breaking: true, anchor: key,
+              detail: `${pkey}: -${dropped.sort().join(',-')}`,
+            });
+          }
+        }
+        // String-constraint TIGHTENING on a request parameter: values senders
+        // used to pass now get rejected by validation -> breaking. Fired only
+        // on explicit-to-explicit evidence (both sides carry the keyword;
+        // absent = unknown = silent, see paramConstraints). Loosening
+        // directions (min decreased / max increased / pattern removed) widen
+        // the accepted value set and stay silent. oasdiff's
+        // request-parameter-max-length-decreased is the reference case
+        // (paypal checkout_orders paypal-client-metadata-id GUID 68 -> 36).
+        if (meta.minLength !== null && next.minLength !== null && next.minLength > meta.minLength) {
+          records.push({
+            kind: 'param-min-length-increased', breaking: true, anchor: key,
+            detail: `${pkey}: minLength ${meta.minLength} -> ${next.minLength}`,
+          });
+        }
+        if (meta.maxLength !== null && next.maxLength !== null && next.maxLength < meta.maxLength) {
+          records.push({
+            kind: 'param-max-length-decreased', breaking: true, anchor: key,
+            detail: `${pkey}: maxLength ${meta.maxLength} -> ${next.maxLength}`,
+          });
+        }
+        // Pattern ADDED where the old side verifiably had none. Vacuous
+        // match-anything patterns reject nothing and stay silent (PayPal
+        // stamps `^[\S\s]*$` on ids wholesale = annotation churn). Pattern
+        // REWRITES stay silent: comparing regex languages for narrowing is
+        // undecidable (same adjudication as request-prop-pattern-added).
+        if (meta.pattern === null && meta.types && meta.types.has('string')
+            && typeof next.pattern === 'string' && !VACUOUS_PATTERNS.has(next.pattern)) {
+          records.push({
+            kind: 'param-pattern-added', breaking: true, anchor: key,
+            detail: `${pkey} pattern ${next.pattern}`,
+          });
+        }
+      }
+    }
+    for (const [pkey, meta] of newOp.params) {
+      if (oldOp.params.has(pkey)) continue;
+      records.push({
+        kind: meta.required ? 'param-added-required' : 'param-added-optional',
+        breaking: !!meta.required, anchor: key, detail: pkey,
+      });
+    }
+
+    // Request body removed wholesale: every caller that sends a body now
+    // targets an operation that no longer declares one -- servers commonly
+    // reject or silently ignore the payload, and generated SDKs drop the
+    // body argument from the signature. Breaking for senders. Fired only on
+    // declared-to-absent evidence (op.requestBody present in OLD, absent in
+    // NEW); the reverse direction (body added) is additive when optional and
+    // already surfaces through the prop pass when required. oasdiff's
+    // request-body-removed is the reference case (paypal invoicing_v2
+    // POST /v2/invoicing/generate-next-invoice-number 7bbed782->fb6f126).
+    if (oldOp.hasBody && !newOp.hasBody) {
+      records.push({ kind: 'request-body-removed', breaking: true, anchor: key, detail: '' });
+    }
+
+    diffPropMaps(oldOp.requestProps, newOp.requestProps, 'request', key, records);
+    diffDeepRequestTightenings(oldOp.requestPropsDeep, newOp.requestPropsDeep,
+      oldOp.requestProps, newOp.requestProps, key, records);
+
+    // A SUCCESS status code disappearing is breaking: callers branching on
+    // that code (e.g. 202 Accepted) stop matching. Checked on the raw status
+    // set (independent of whether the response carries a schema -- 202s are
+    // often bodyless). Error-code churn (4xx/5xx definitions come and go in
+    // generated specs) stays silent: reporting it would fire on documentation
+    // cleanup, violating the false-positive-rate-first rule.
+    for (const status of oldOp.responseStatuses) {
+      if (!newOp.responseStatuses.has(status) && /^2\d\d$/.test(status)) {
+        records.push({ kind: 'response-status-removed', breaking: true, anchor: `${key} -> ${status}`, detail: '' });
+      }
+    }
+
+    const statuses = new Set([...oldOp.responseProps.keys(), ...newOp.responseProps.keys()]);
+    for (const status of statuses) {
+      const o = oldOp.responseProps.get(status);
+      const n = newOp.responseProps.get(status);
+      if (!o || !n) continue; // status added, or removed (handled above): skip prop diff
+      diffPropMaps(o, n, 'response', `${key} -> ${status}`, records);
+    }
+  }
+  for (const [key] of newOps) {
+    const path = key.split(' ')[1];
+    if (!oldOps.has(key) && oldPaths.has(path)) {
+      records.push({ kind: 'operation-added', breaking: false, anchor: key, detail: '' });
+    }
+  }
+
+  records.sort((a, b) => (b.breaking - a.breaking) || a.anchor.localeCompare(b.anchor) || a.kind.localeCompare(b.kind));
+  return records;
+}
+
+// ---------- CLI ----------
+
+function main() {
+  const args = process.argv.slice(2);
+  const jsonIdx = args.indexOf('--json');
+  const jsonOut = jsonIdx !== -1 ? args[jsonIdx + 1] : null;
+  const files = args.filter((a, i) => a !== '--json' && (jsonIdx === -1 || i !== jsonIdx + 1));
+  if (files.length !== 2) {
+    console.error('Usage: node app/specdiff.js <old-spec.json> <new-spec.json> [--json <out.json>]');
+    process.exit(1);
+  }
+  let oldSpec, newSpec;
+  try {
+    oldSpec = JSON.parse(readFileSync(files[0], 'utf8'));
+    newSpec = JSON.parse(readFileSync(files[1], 'utf8'));
+  } catch (e) {
+    console.error(`Failed to read/parse spec: ${e.message}`);
+    process.exit(1);
+  }
+  const records = diffSpecs(oldSpec, newSpec);
+  const breaking = records.filter((r) => r.breaking);
+  console.log(`specdiff: ${records.length} changes (${breaking.length} breaking)`);
+  for (const r of records) {
+    console.log(`  [${r.breaking ? 'BREAKING' : (r.warning ? 'warning ' : 'additive')}] ${r.kind}  ${r.anchor}${r.detail ? '  ' + r.detail : ''}`);
+  }
+  if (jsonOut) {
+    writeFileSync(jsonOut, JSON.stringify({ generated_at: new Date().toISOString(), tool: 'mendapi-specdiff/0.1', records }, null, 2));
+    console.log(`JSON written: ${jsonOut}`);
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) main();

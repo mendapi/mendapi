@@ -1,0 +1,6 @@
+{
+  "name": "gold-aws-app",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": { "@aws-sdk/client-s3": "^3.0.0" }
+}

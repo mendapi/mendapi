@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "get-hooks": "npx -q --no-install slack-cli-get-hooks",
+    "start": "npm run dev"
+  }
+}

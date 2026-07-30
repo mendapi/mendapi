@@ -1,0 +1,25 @@
+{
+  "change_id": 1321,
+  "provider": "shopify",
+  "source": {
+    "kind": "changelog",
+    "anchor": "GraphQL Admin API metafield filters (API version 2026-10)",
+    "detail": "invalid metafield filter predicates now return errors instead of silently returning incorrect results"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T00:00:00.000Z",
+  "verdict": "not-code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "Admin API 2026-07",
+    "new_version": "Admin API 2026-10",
+    "checked": "Full changelog prose in DB raw_excerpt: from 2026-10 the GraphQL Admin API validates metafield filters before running a query and errors when the metafield has no definition, its definition does not allow filtering, or its type does not support the comparison. Queries whose metafield filters are already valid behave exactly as before. Whether a given query breaks depends on per-shop metafield definitions (data in the merchant's store), not on anything visible in the consumer's code."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "none-shop-config-dependent-validation",
+    "migration_guide": "No codemod applies: the query text alone cannot tell whether a metafield filter is valid - validity depends on the shop's metafield definitions (existence, filterable flag, type compatibility), which is runtime configuration. The correct remediation is operational: run affected queries against a 2026-10 dev store, and for each rejected filter either create/enable a filterable metafield definition in the shop admin or drop the predicate - both are data/product decisions. Note this change is arguably a fix for consumers (silently wrong results become explicit errors); code that was already correct is untouched.",
+    "example_before": "products(query: \"metafield:custom.priority:high\") { ... }",
+    "example_after": "// same query - but ensure the custom.priority metafield definition exists and has filtering enabled in the shop admin"
+  }
+}

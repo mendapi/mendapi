@@ -1,0 +1,25 @@
+{
+  "change_id": 44393,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v1/payment_intents",
+    "detail": "payment_method_options.us_bank_account.preferred_settlement_speed"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T18:00:21.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2153 (2026-01-28.clover)",
+    "new_version": "stripe/openapi v2154 (2026-01-28.clover)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): payment_intent_payment_method_options_us_bank_account lists preferred_settlement_speed in v2153 and drops it in v2154 with no successor property (token count 4 -> 0 across the whole spec; remaining props financial_connections, mandate_options, setup_future_usage, target_date, verification_method are unchanged). The three payment-intent request surfaces declare additionalProperties:false, so sending the property is rejected after the change. Fifty records are per-operation projections of this single schema removal across every endpoint that embeds a payment intent."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field",
+    "migration_guide": "payment_method_options.us_bank_account.preferred_settlement_speed was removed from the Stripe API with no successor (POST /v1/payment_intents). Delete reads of the property from payment intent objects embedded in this response; the field is no longer returned. Settlement timing is now controlled by Stripe; if faster settlement matters to the business, that is an account-level conversation with Stripe, not a code path.",
+    "example_before": "const pi = await stripe.paymentIntents.retrieve(id);\nif (pi.payment_method_options.us_bank_account.preferred_settlement_speed === 'fastest') {\n  markFastSettlement();\n}",
+    "example_after": "const pi = await stripe.paymentIntents.retrieve(id);\n// preferred_settlement_speed is no longer returned; settlement timing\n// is managed by Stripe. Remove the branch."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "change_id": 44411,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v1/terminal/configurations",
+    "detail": "tipping.bgn"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T18:00:21.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "stripe/openapi v2153 (2026-01-28.clover)",
+    "new_version": "stripe/openapi v2154 (2026-01-28.clover)",
+    "checked": "Cached stripe OAS snapshots (openapi/spec3.json): the terminal_configuration_configuration_resource_tipping schema lists 22 currency blocks including bgn in v2153 and 21 in v2154 with only bgn removed (token count for \"bgn\" 4 -> 0 across the whole spec). Both terminal configuration request schemas declare additionalProperties:false, so sending tipping[bgn] is rejected after the change. The eur block is retained in both versions. Fourteen records are per-surface projections of one schema removal (create/update/get/list x request/response x bgn subtree)."
+  },
+  "alternative_data_source": "Bulgaria adopted the euro; the eur tipping block remains available in both spec versions for the same accounts.",
+  "fix": {
+    "strategy": "remove-discontinued-field",
+    "migration_guide": "Terminal configuration tipping no longer supports the bgn currency block (tipping.bgn). Remove bgn from tipping payloads sent to POST /v1/terminal/configurations and delete reads of the bgn block from configuration responses. If Bulgarian terminals still need tipping presets, configure the eur block instead (amount conversion from lev to euro is a business decision at the fixed BGN/EUR rate).",
+    "example_before": "const cfg = await stripe.terminal.configurations.retrieve(id);\nconst presets = cfg.tipping.bgn.percentages;",
+    "example_after": "const cfg = await stripe.terminal.configurations.retrieve(id);\nconst presets = cfg.tipping.eur?.percentages ?? [];"
+  }
+}

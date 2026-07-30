@@ -1,0 +1,6 @@
+{
+  "name": "demo-slack-v8",
+  "type": "commonjs",
+  "private": true,
+  "description": "Fixture repo using the legacy Slack SDK v7 ErrorCode-based error handling."
+}

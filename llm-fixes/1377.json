@@ -1,0 +1,25 @@
+{
+  "change_id": 1377,
+  "provider": "slack",
+  "source": {
+    "kind": "changelog",
+    "anchor": "Slack CLI 3.0.0",
+    "detail": "slack.json renamed to .slack/hooks.json (legacy path still supported with a verbose-mode warning)"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "Slack CLI 2.x",
+    "new_version": "Slack CLI 3.0.0",
+    "checked": "Official Slack changelog entry read in full from the DB raw_excerpt: version 3.0.0 renames the project config file slack.json to .slack/hooks.json, continues to read slack.json for existing projects, and emits a migration warning in --verbose output. Commands now resolve the hooks file at either path, so this is a soft deprecation of the old location rather than an immediate break."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "project-config-file-relocation",
+    "migration_guide": "Deterministic repository transform rather than a source-code edit: move slack.json to .slack/hooks.json (creating the .slack directory), keeping the JSON content byte-identical since only the location changed. Sweep the repo for references to the old path — CI scripts, Dockerfiles, .gitignore entries, docs and npm scripts that copy or validate slack.json — and update them to .slack/hooks.json. Because the legacy path keeps working in 3.0.0, the mend is low urgency but trivially safe and idempotent (if .slack/hooks.json already exists, do nothing). This is a file-move pack candidate, a different mend primitive from our in-file rewrites and worth keeping as the reference example of repo-level transforms.",
+    "example_before": "// repo layout\nslack.json\n// ci step\ncat slack.json | jq .hooks",
+    "example_after": "// repo layout\n.slack/hooks.json\n// ci step\ncat .slack/hooks.json | jq .hooks"
+  }
+}

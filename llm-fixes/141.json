@@ -1,0 +1,25 @@
+{
+  "change_id": 141,
+  "provider": "cloudflare",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "cloudflare-typescript v7.0.0",
+    "detail": "Major release: named path parameters (232 methods), Id->ID renames, web fetch types, removed helpers and import paths"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T11:29:10.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "cloudflare-typescript v6.5.0",
+    "new_version": "cloudflare-typescript v7.0.0",
+    "checked": "Full 10KB release body fetched from the GitHub releases API and read section by section. Mechanically mappable surfaces: 11 explicit Id->ID method renames (vectorize.indexes deleteByIds/getByIds, realtimeKit meeting/preset/session/webhook/livestream getters), 4 DEXTest* return-type renames to SchemaHTTP(S), APIClient->BaseCloudflare import move, cloudflare/src/* and cloudflare/core import-path updates, fileFromPath->fs.createReadStream. Larger surfaces (232 methods moving intermediate path parameters into the options object, 792 parameter-name casing changes, node-fetch body -> web stream call sites) are signature-shape transforms requiring argument-position awareness. Upstream ships its own codemod (npx cloudflare migrate) which is documented as non-idempotent and unsafe on partially migrated code."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "sdk-major-migration-mixed-map",
+    "migration_guide": "Split the mend into two grades. Deterministic grade (regex-pack candidate): the 11 Id->ID method renames on vectorize/realtimeKit member chains, the 4 DEXTest* type renames to SchemaHTTP/SchemaHTTPS, import rewrites from cloudflare/core (APIClient -> BaseCloudflare from cloudflare/client) and from cloudflare/src/* to cloudflare/*, and fileFromPath call sites to fs.createReadStream. Signature grade (AST track): the 232 multi-path-parameter methods where every path parameter except the last moves into the options object as a snake_case key, plus asResponse()/withResponse() body consumers switching from node-fetch streams to Readable.fromWeb. Our packs must stay idempotent and safe on partially migrated code — exactly the two documented failure modes of the upstream migration CLI, which is the differentiation evidence recorded here.",
+    "example_before": "import { APIClient } from 'cloudflare/core';\nawait client.vectorize.indexes.getByIds(indexName, { ids, account_id });",
+    "example_after": "import { BaseCloudflare } from 'cloudflare/client';\nawait client.vectorize.indexes.getByIDs(indexName, { ids, account_id });"
+  }
+}

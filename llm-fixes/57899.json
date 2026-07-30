@@ -1,0 +1,25 @@
+{
+  "change_id": 57899,
+  "provider": "paypal",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v2/payments/captures/{capture_id}/refund",
+    "detail": "payment_instruction.platform_fees[].payee"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:06:17.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/payments_payment_v2.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/payments_payment_v2.json @ a54ed770aec6 (2025-07-16)",
+    "checked": "Cached snapshots, token-level: payee_pricing_tier_id token count 2 -> 0 spec-wide; payment_instruction props {disbursement_mode, payee_pricing_tier_id, payee_receivable_fx_rate_id, platform_fees} -> the same minus payee_pricing_tier_id. Refund-side payment_instruction-2 platform_fees items resolved props {amount, payee} -> {amount}; the capture-side platform_fee schema keeps {amount, payee} in BOTH versions (removal scoped to the refund request surface)."
+  },
+  "alternative_data_source": "The capture-side platform_fee schema keeps payee (amount + payee) in both versions; only the refund request lost it.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "payment_instruction.platform_fees[].payee on POST /v2/payments/captures/{capture_id}/refund: on the REFUND request, platform_fees[] items shrank from {amount, payee} to {amount} (token-verified). The capture-side platform_fee schema keeps payee in both versions, so this removal is scoped to refund payloads only. Delete the payee object (and its email_address / merchant_id leaves) from refund platform_fees entries; keep amount.",
+    "example_before": "await refund(captureId, {\n  payment_instruction: {\n    platform_fees: [{\n      amount: { currency_code: 'USD', value: '2.00' },\n      payee: { merchant_id: partnerId },\n    }],\n  },\n});",
+    "example_after": "// The refund request no longer accepts platform_fees[].payee.\nawait refund(captureId, {\n  payment_instruction: {\n    platform_fees: [{\n      amount: { currency_code: 'USD', value: '2.00' },\n    }],\n  },\n});"
+  }
+}

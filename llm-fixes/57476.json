@@ -1,0 +1,25 @@
+{
+  "change_id": 57476,
+  "provider": "paypal",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v1/billing/subscriptions/{id}/revise",
+    "detail": "application_context.user_action"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T20:34:05.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/billing_subscriptions_v1.json @ fb6f12627e (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/billing_subscriptions_v1.json @ 7bbed782",
+    "checked": "Cached snapshots, token-level with allOf resolution: NEW resolved subscriber props = {email_address, name, payer_id, payment_source, phone, shipping_address} (address, birth_date, tax_info gone). subscriber.name 7 props -> {given_name, surname}. shipping_address.name -> {full_name} only; shipping_address.address 10 -> 6 core portable fields. Inline plan echo in subscription 200: props lose id/status/create_time/update_time/links (7 survivors); top-level plan_id unchanged. phone.phone_number -> {national_number}. application_context.payment_method -> {payee_preferred}. revise 200 response: application_context key absent (OLD present); revise request application_context drops user_action only. transaction/capture payer_name keeps 6 name parts, drops alternate_full_name; status_details(.reason) absent in NEW transaction and capture 200 (status survives). Card request: OLD {billing_address, card_type, expiry, id, last_digits, name, number, security_code} -> NEW {attributes, billing_address, brand, expiry, name, number, security_code, type}. GET /v1/billing/plans params OLD [Prefer, product_id, plan_ids, page_size, page, total_required] -> NEW without plan_ids."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "application_context.user_action was removed on POST /v1/billing/subscriptions/{id}/revise: the revise 200 response no longer echoes application_context at all, and the revise request's application_context no longer accepts user_action (token-verified; the request keeps brand_name/locale/return_url/cancel_url/shipping_preference/payment_method). Delete reads of the response echo — the values you sent are your own request data; drop user_action from the revise payload.",
+    "example_before": "const { application_context } = await reviseSubscription(id, body);\nredirect(application_context.return_url);",
+    "example_after": "await reviseSubscription(id, body);\nredirect(body.application_context.return_url); // echo removed; use your own request data"
+  }
+}

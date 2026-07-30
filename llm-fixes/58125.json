@@ -1,0 +1,25 @@
+{
+  "change_id": 58125,
+  "provider": "paypal",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v2/customer/partner-referrals",
+    "detail": "business_entity.office_bearers[].role"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:16:22.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/customer_partner_referrals_v2.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/customer_partner_referrals_v2.json @ 7bbed782c329 (2025-07-23)",
+    "checked": "Cached snapshots, token-level: the office_bearer and office_bearer_role schemas exist in OLD and are absent from NEW (schema list verified); resolved business_entity props lose the office_bearers key while the sibling beneficial_owners list survives in both versions. The only remaining office_bearers token in NEW is a static response example, not a property."
+  },
+  "alternative_data_source": "The sibling business_entity.beneficial_owners list survives in both versions; it is a different legal concept (ownership, not officers) and is NOT a drop-in replacement.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "business_entity.office_bearers[].role on POST /v2/customer/partner-referrals: the entire business_entity.office_bearers subtree was removed from the Partner Referrals v2 API (the office_bearer schema itself is gone). There is no successor field — stop sending office_bearers in referral payloads and delete reads of the subtree from responses. The sibling beneficial_owners list survives but models ownership, not officers; substituting it is a business decision, not a mechanical mend.",
+    "example_before": "const referral = {\n  operations,\n  business_entity: {\n    names,\n    office_bearers: officers.map(toBearer),\n  },\n};",
+    "example_after": "// office_bearers was removed from Partner Referrals v2 (no successor).\nconst referral = {\n  operations,\n  business_entity: {\n    names,\n  },\n};"
+  }
+}

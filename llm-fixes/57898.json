@@ -1,0 +1,25 @@
+{
+  "change_id": 57898,
+  "provider": "paypal",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v2/payments/authorizations/{authorization_id}/capture",
+    "detail": "payment_instruction.payee_pricing_tier_id"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T22:06:17.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/payments_payment_v2.json @ fb6f12627e27 (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/payments_payment_v2.json @ a54ed770aec6 (2025-07-16)",
+    "checked": "Cached snapshots, token-level: payee_pricing_tier_id token count 2 -> 0 spec-wide; payment_instruction props {disbursement_mode, payee_pricing_tier_id, payee_receivable_fx_rate_id, platform_fees} -> the same minus payee_pricing_tier_id. Refund-side payment_instruction-2 platform_fees items resolved props {amount, payee} -> {amount}; the capture-side platform_fee schema keeps {amount, payee} in BOTH versions (removal scoped to the refund request surface)."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "payment_instruction.payee_pricing_tier_id on POST /v2/payments/authorizations/{authorization_id}/capture: payee_pricing_tier_id was removed from the capture request's payment_instruction (token-verified: the field is gone spec-wide; siblings disbursement_mode, payee_receivable_fx_rate_id and platform_fees survive). There is no successor field — stop sending it. Removing the property from the request payload is a mechanical mend.",
+    "example_before": "await capture(authId, {\n  payment_instruction: {\n    disbursement_mode: 'INSTANT',\n    payee_pricing_tier_id: tierId,\n  },\n});",
+    "example_after": "// payee_pricing_tier_id is no longer part of the capture request.\nawait capture(authId, {\n  payment_instruction: {\n    disbursement_mode: 'INSTANT',\n  },\n});"
+  }
+}

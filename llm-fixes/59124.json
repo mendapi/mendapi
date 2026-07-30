@@ -1,0 +1,25 @@
+{
+  "change_id": 59124,
+  "provider": "shopify",
+  "source": {
+    "kind": "changelog",
+    "anchor": "POS UI Extensions 2026-07 Printing API",
+    "detail": "shopify.print deprecated, superseded by shopify.printing.print"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T05:48:24.479Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "POS UI Extensions pre-2026-07",
+    "new_version": "POS UI Extensions 2026-07",
+    "checked": "Full changelog prose in DB raw_excerpt: shopify.printing.getPrinters() and shopify.printing.print(src, options?) supersede shopify.print, which is now deprecated. The changelog itself includes the migration code pattern (getPrinters -> find connected -> print with printer, else fall back to system dialog) and the PDF caveat (never pass a printer for PDF src)."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "replace-deprecated-call",
+    "migration_guide": "shopify.print is deprecated as of POS UI Extensions 2026-07 in favor of shopify.printing.print. Mechanical migration: replace shopify.print(src) calls with shopify.printing.print(src). To target a hardware receipt printer directly, first call shopify.printing.getPrinters(), pick a connected printer, and pass it via options.printer; always handle the empty-array case (POS < 11.11.0 or no printer paired) by falling back to the dialog form. Do not pass options.printer when src is a PDF - that throws; PDFs must use the system print dialog.",
+    "example_before": "await shopify.print('/print/receipt');",
+    "example_after": "const printers = await shopify.printing.getPrinters();\nconst receiptPrinter = printers.find((p) => p.connected);\nawait shopify.printing.print('/print/receipt', receiptPrinter ? { printer: receiptPrinter } : undefined);"
+  }
+}

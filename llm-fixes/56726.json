@@ -1,0 +1,25 @@
+{
+  "change_id": 56726,
+  "provider": "paypal",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v3/vault/payment-tokens",
+    "detail": "payment_source.venmo.name.full_name"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T19:48:13.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "paypal/paypal-rest-api-specifications openapi/vault_payment_tokens_v3.json @ fb6f12627e (2024-02-02)",
+    "new_version": "paypal/paypal-rest-api-specifications openapi/vault_payment_tokens_v3.json @ a54ed770ae (2025-07-16)",
+    "checked": "Cached snapshots, token-level: information_link 3->2 (survivor is a static example inside error_503, not a property; new error schemas are {name,message,details,debug_id,links}). Wallet profile fields: birth_date 1->0, tax_info 3->0, alternate_full_name 1->0, address_details 2->0, admin_area_4 1->0; new paypal_wallet_response/venmo_response resolved name props = {given_name,surname} (old name schema had 7 props), address keeps the six core portable fields. apple_pay card props 10->5 (id/number/expiry/security_code/card_type dropped; billing_address/brand/last_digits/name/type survive). payment_source.bank: ach_debit token 7->0, schemas ach_debit_response/bank_response deleted, no bank schema in new spec. ordinal token 4->0, schema deleted. token_id_request.type: old enum [\"BILLING_AGREEMENT\"], new spec documents SETUP_TOKEN only (x-enumDescriptions). Card request: old card schema 10 props (id/last_digits/card_type/type present) -> new definitions-payment_source.card request 7 props; billing_address props 10->6 (address_line_3/admin_area_3/admin_area_4/address_details dropped)."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "payment_source.venmo.name.full_name was removed from vaulted wallet responses on POST /v3/vault/payment-tokens (data-minimisation trim of the paypal/venmo payment source: birth_date, tax_info and the extended name/address fields are gone; verified survivors are name.given_name/name.surname and the six core portable address fields). Delete dead reads; if you displayed full_name, compose it from given_name + surname.",
+    "example_before": "const who = token.payment_source.paypal.name.full_name;\nconst tax = token.payment_source.paypal.tax_info?.tax_id;",
+    "example_after": "const n = token.payment_source.paypal.name;\nconst who = [n?.given_name, n?.surname].filter(Boolean).join(' ');\n// tax_info is no longer returned by the vault API."
+  }
+}

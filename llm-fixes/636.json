@@ -1,0 +1,25 @@
+{
+  "change_id": 636,
+  "provider": "meta",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "Marketing API v24.0 / facebook-nodejs-business-sdk 24.0.0",
+    "detail": "Facebook video feeds ad placement removed; CTMLG third-party creation discontinued"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-25T08:14:33.000Z",
+  "verdict": "code-fixable",
+  "confidence": "medium",
+  "spec_evidence": {
+    "old_version": "23.0.3",
+    "new_version": "24.0.0",
+    "checked": "Release notes in DB raw excerpt verified against the facebook-nodejs-business-sdk v24.0.0 release: the Facebook video feeds ad placement is no longer available in Marketing API v24.0 and attempts to use it result in errors; third-party creation of Click to Messenger Lead Gen ads via the API is discontinued (Ads Manager remains). Other listed items (Dynamic Media default-on, budget flexibility changes) are behavioral defaults, not code breaks."
+  },
+  "alternative_data_source": null,
+  "fix": {
+    "strategy": "remove-discontinued-enum-value",
+    "migration_guide": "The mechanical part is deleting the retired placement value from ad set targeting: remove 'video_feeds' entries from facebook_positions (and equivalent placement arrays) in adset create/update payloads - requests that still send it error out under v24.0. Delivery automatically redistributes to remaining placements, so deletion is the safe conservative rewrite. The CTMLG discontinuation in the same release is a platform capability withdrawal (create those ads in Ads Manager instead) and is not code-fixable; this asset covers the placement removal, which is the part that breaks existing request payloads.",
+    "example_before": "targeting: { facebook_positions: ['feed', 'video_feeds', 'story'] }",
+    "example_after": "targeting: { facebook_positions: ['feed', 'story'] }"
+  }
+}
