@@ -540,6 +540,17 @@ const CASES = [
       'honorific: order.shipping_address.name.prefix,',
       'district: order.shipping_address.address.admin_area_3,',
       'street: order.shipping_address.address.address_details.street_name,',
+      // AST-track pass: dead multi-line prefix binding collapses to the
+      // surviving full_name; the consumer line is untouched
+      'const { full_name } = sub.subscriber.shipping_address.name;',
+      'return full_name;',
+      // guard: referenced destructuring pattern survives untouched even
+      // though address_details is a withdrawn token
+      'const { address_details, postal_code } = sub.subscriber.shipping_address.address;',
+      'return { address_details, postal_code };',
+      // anchor-gate guard: prefix bound off the SURVIVING subscriber.name
+      // chain must never be removed even though the binding is dead
+      'const { prefix, given_name } = sub.subscriber.name;',
     ],
     mustNotHave: [
       'sub.subscriber.shipping_address.name.prefix',
@@ -548,6 +559,7 @@ const CASES = [
       'sub.subscriber.shipping_address.address.admin_area_3',
       'sub.subscriber.shipping_address.address.address_details',
       'shipping_address?.name?.alternate_full_name',
+      'prefix,\n    full_name',
     ],
     minFilesChanged: 1,
   },

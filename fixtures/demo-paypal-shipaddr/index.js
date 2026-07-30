@@ -28,4 +28,16 @@ async function buildShippingLabel(id, headers) {
   return label;
 }
 
-module.exports = { buildShippingLabel };
+async function labelName(id, headers) {
+  const sub = await fetchSubscription(id, headers);
+  // Multi-line destructuring: the prefix binding is dead code once the
+  // spec trims shipping_address.name to full_name; only full_name is
+  // consumed.
+  const {
+    prefix,
+    full_name,
+  } = sub.subscriber.shipping_address.name;
+  return full_name;
+}
+
+module.exports = { buildShippingLabel, labelName };

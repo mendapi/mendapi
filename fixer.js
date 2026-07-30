@@ -2018,6 +2018,50 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced withdrawn-field bindings from flat shipping_address destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. The withdrawn names live at two depths of
+        // the shipping_address object (name.* extended fields, address.*
+        // extended fields) and several of them survive elsewhere on the
+        // very same response (given_name/surname stay on subscriber.name),
+        // so each group carries its own anchor gate on top of the
+        // primitive's guards: for each field, EVERY flat destructuring
+        // pattern in the file that binds the name must have a right-hand
+        // side anchored to that group's shipping_address member chain -
+        // one unanchored pattern (a `prefix` pulled off the surviving
+        // subscriber.name, say) and the field is skipped for the whole
+        // file. Patterns that pass the gate go through
+        // removeDestructuredProperty, which only removes a binding when it
+        // is flat, default/rest-free and has zero other code-region
+        // references (member access and string/comment mentions never
+        // count).
+        detect: /\{[^{}]*\b(?:prefix|given_name|surname|middle_name|suffix|alternate_full_name|address_line_3|admin_area_3|admin_area_4|address_details)\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v1\/billing\b/.test(t) || /\bpaypal\b/i.test(t);
+          const subsCtx = /\/v1\/billing\/subscriptions|billing[_-]?subscriptions|billingSubscriptions/i.test(t);
+          if (!paypalCtx || !subsCtx) return t;
+          const GROUPS = [
+            { fields: ['prefix', 'given_name', 'surname', 'middle_name', 'suffix', 'alternate_full_name'], anchor: /\.\s*shipping_address\s*\??\.\s*name\b/ },
+            { fields: ['address_line_3', 'admin_area_3', 'admin_area_4', 'address_details'], anchor: /\.\s*shipping_address\s*\??\.\s*address\b/ },
+          ];
+          let out = t;
+          for (const { fields, anchor } of GROUPS) {
+            for (const field of fields) {
+              const pat = new RegExp(`\\{[^{}]*\\b${field}\\b[^{}]*\\}\\s*=\\s*([^;\\n]*)`, 'g');
+              let sawPattern = false;
+              let allAnchored = true;
+              for (const m of out.matchAll(pat)) {
+                sawPattern = true;
+                if (!anchor.test(m[1])) { allAnchored = false; break; }
+              }
+              if (!sawPattern || !allAnchored) continue;
+              out = removeDestructuredProperty(out, field);
+            }
+          }
+          return out;
+        },
+      },
     ],
   },
   'paypal-billing-subscriptions-v1-subscriber-pii-removal': {
