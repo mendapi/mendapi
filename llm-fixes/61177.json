@@ -1,0 +1,27 @@
+{
+  "change_id": 61177,
+  "provider": "stripe",
+  "source": {
+    "kind": "response-prop-removed",
+    "anchor": "POST /v1/customers/{customer}/sources/{id}",
+    "detail": "customer.default_source.iin"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T13:15:35.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "stripe/openapi spec3.json @ v2348 (API version 2026-06-24.dahlia)",
+    "new_version": "stripe/openapi spec3.json @ v2349 (API version 2026-07-29.dahlia)",
+    "checked": "Cached snapshots, token-level: \"iin\" property token count 1 -> 0 spec-wide; the list of schemas carrying an iin property goes [card] -> [] (the v2324 payment-record card_details.iin removal already left that projection schema without the field). All 1603 response records of this pair are per-operation projections of the single legacy card schema change.",
+    "spec_tag": "v2349",
+    "spec_diff_evidence": "loop/cache/specs/diff-stripe-spec3-v2348-to-v2349.json"
+  },
+  "alternative_data_source": "No successor on the card object: iin (first-six/BIN issuer metadata) is PCI-scoped data Stripe no longer exposes on the legacy card source schema. The brand, funding, last4 and exp_* leaves survive unchanged.",
+  "fix": {
+    "strategy": "remove-discontinued-field-read",
+    "migration_guide": "customer.default_source.iin on POST /v1/customers/{customer}/sources/{id}: the legacy card source schema lost its iin property in v2349 (token-verified 1 -> 0 spec-wide), so every response surface embedding a card object — including this one — stops returning the field. There is no successor; delete reads of .iin from card objects reached through this endpoint (charges' payment sources, customer default_source, external accounts and error.source projections alike). The surviving card identity leaves (brand, funding, last4, exp_month, exp_year) are unchanged.",
+    "example_before": "const card = res.customer.default_source;\nconst binPrefix = card.iin;\nrecord({ brand: card.brand, bin: binPrefix, last4: card.last4 });",
+    "example_after": "// card.iin was removed from the API surface in 2026-07-29.dahlia\n// (no successor: BIN metadata is no longer exposed on the card object).\nconst card = res.customer.default_source;\nrecord({ brand: card.brand, last4: card.last4 });"
+  }
+}

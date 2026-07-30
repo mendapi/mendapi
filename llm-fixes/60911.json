@@ -1,0 +1,27 @@
+{
+  "change_id": 60911,
+  "provider": "stripe",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v1/accounts",
+    "detail": "documents.proof_of_registration.files"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T13:15:35.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "stripe/openapi spec3.json @ v2348 (API version 2026-06-24.dahlia)",
+    "new_version": "stripe/openapi spec3.json @ v2349 (API version 2026-07-29.dahlia)",
+    "checked": "Cached snapshots, token-level: proof_of_registration token count 3 -> 2; JSON-path locates the removal on POST /v1/accounts (create) documents while POST /v1/accounts/{account} (update) retains the property — exactly matching the stripe-node v22.4.0 / stripe-python v15.4.0 release wording (AccountCreateParams only). Full adjudication evidence: loop/evidence/loop443-proof-of-registration-spec-verification.json (assets 60020/60130).",
+    "spec_tag": "v2349",
+    "spec_diff_evidence": "loop/cache/specs/diff-stripe-spec3-v2348-to-v2349.json"
+  },
+  "alternative_data_source": "Registration proof uploads continue via the Stripe Dashboard onboarding flow and the account update endpoint (POST /v1/accounts/{account}), which retains documents.proof_of_registration.",
+  "fix": {
+    "strategy": "remove-discontinued-request-param",
+    "migration_guide": "documents.proof_of_registration.files on POST /v1/accounts: account creation no longer accepts documents.proof_of_registration (limited-use field withdrawn in 2026-07-29.dahlia; token-verified — the update endpoint keeps it). Delete the property from create payloads. If the document must still be attached programmatically, upload it after creation through POST /v1/accounts/{account}, which retains the field.",
+    "example_before": "await stripe.accounts.create({\n  type: 'custom',\n  documents: { proof_of_registration: { files: [fileId] } },\n});",
+    "example_after": "// proof_of_registration is no longer accepted at create time.\nconst account = await stripe.accounts.create({ type: 'custom' });\nawait stripe.accounts.update(account.id, {\n  documents: { proof_of_registration: { files: [fileId] } },\n});"
+  }
+}

@@ -316,7 +316,98 @@ function renameIdentifier(text, oldName, newName, opts = {}) {
   return out;
 }
 
-export { codeMask, kindMask, maskNonCode, splitArgs, findCallSites, replaceCalls, renameCall, renameIdentifier };
+// ---------- destructuring pattern cleanup ----------
+// Remove one property from flat object destructuring declarations, e.g.
+//   const { iin, brand } = customer.default_source;   ->   const { brand } = customer.default_source;
+// This is the AST-tier counterpart of the conservative line-level packs that
+// deliberately leave destructuring patterns alone (a dropped binding would
+// turn downstream reads into ReferenceErrors). Safety rules, all honest-skip:
+//   * only flat patterns (no nested braces) are touched
+//   * entries with defaults (`iin = x`) or rest (`...r`) leave the site alone
+//   * the bound identifier must have ZERO other references in code regions
+//     (string literals, comments, template text never count; `obj.iin`
+//     member access never counts; any ambiguous hit counts as a reference,
+//     the conservative direction)
+//   * when the pattern empties: the declaration is dropped only if the RHS
+//     is a pure member/identifier chain (no call parens = no side effects);
+//     otherwise it is kept as `const {} = rhs;` (valid JS, side effects kept)
+function removeDestructuredProperty(text, propName) {
+  if (!/^[A-Za-z_$][\w$]*$/.test(propName)) throw new Error(`removeDestructuredProperty: invalid identifier ${JSON.stringify(propName)}`);
+  const masked = maskNonCode(text);
+  const km = kindMask(text);
+  const declRe = /\b(const|let|var)\s*\{([^{}]*)\}\s*=/g;
+  const edits = []; // { start, end, replacement }
+  let m;
+  while ((m = declRe.exec(masked)) !== null) {
+    const braceOpen = masked.indexOf('{', m.index);
+    const braceClose = masked.indexOf('}', braceOpen);
+    const inner = text.slice(braceOpen + 1, braceClose);
+    // parse flat entries from the real text (offsets equal the masked text)
+    const rawEntries = inner.split(',').map((e) => e.trim()).filter((e) => e !== '');
+    let hitIdx = -1;
+    let bound = null;
+    for (let i = 0; i < rawEntries.length; i++) {
+      const e = rawEntries[i];
+      if (e === propName) { hitIdx = i; bound = propName; break; }
+      const am = e.match(/^([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)$/);
+      if (am && am[1] === propName) { hitIdx = i; bound = am[2]; break; }
+    }
+    if (hitIdx === -1) continue; // property not in this pattern
+    // honest skips: defaults or rest anywhere in the pattern make comma
+    // surgery risky; leave the whole site to a human / full parser
+    if (rawEntries.some((e) => e.includes('=') || e.startsWith('...'))) continue;
+    // reference counting: the bound identifier must appear nowhere else in
+    // code regions (member access `.bound` excluded; everything else counts)
+    const refRe = new RegExp(`(^|[^\\w$])(${bound.replace(/\$/g, '\\$')})(?![\\w$])`, 'g');
+    let referenced = false;
+    let rm;
+    while ((rm = refRe.exec(text)) !== null) {
+      const idStart = rm.index + rm[1].length;
+      if (idStart > braceOpen && idStart < braceClose) continue; // the pattern itself
+      if (km[idStart] !== KIND_CODE) continue; // strings/comments/templates never count
+      if (rm[1] === '.') continue; // member access on another object
+      referenced = true; break;
+    }
+    if (referenced) continue;
+    const kept = rawEntries.filter((_, i) => i !== hitIdx);
+    if (kept.length > 0) {
+      edits.push({ start: braceOpen, end: braceClose + 1, replacement: `{ ${kept.join(', ')} }` });
+      continue;
+    }
+    // pattern emptied: locate the statement end (first code-region `;` or
+    // newline after the `=`) and decide whether the RHS is side-effect free
+    const eq = masked.indexOf('=', braceClose);
+    let stmtEnd = -1;
+    for (let i = eq + 1; i < text.length; i++) {
+      if (km[i] === KIND_CODE && text[i] === ';') { stmtEnd = i + 1; break; }
+      if (text[i] === '\n' && km[i] !== KIND_STRING && km[i] !== KIND_TEMPLATE) { stmtEnd = i; break; }
+    }
+    if (stmtEnd === -1) stmtEnd = text.length;
+    const rhs = text.slice(eq + 1, stmtEnd).replace(/;\s*$/, '').trim();
+    if (/^[\w$?.\[\]\s]+$/.test(rhs) && !rhs.includes('(')) {
+      // pure member/identifier chain: drop the whole declaration; also eat
+      // the leading indentation and the trailing newline so no blank line
+      // is left behind
+      let lineStart = m.index;
+      while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart--;
+      const before = text.slice(lineStart, m.index);
+      const start = /^[ \t]*$/.test(before) ? lineStart : m.index;
+      let end = stmtEnd;
+      if (start === lineStart && text[end] === '\n') end++;
+      edits.push({ start, end, replacement: '' });
+    } else {
+      edits.push({ start: braceOpen, end: braceClose + 1, replacement: '{}' });
+    }
+  }
+  let out = text;
+  for (let i = edits.length - 1; i >= 0; i--) {
+    const e = edits[i];
+    out = out.slice(0, e.start) + e.replacement + out.slice(e.end);
+  }
+  return out;
+}
+
+export { codeMask, kindMask, maskNonCode, splitArgs, findCallSites, replaceCalls, renameCall, renameIdentifier, removeDestructuredProperty };
 
 // ---------- self-test ----------
 function selfTest() {
@@ -431,6 +522,77 @@ function selfTest() {
     t('identifier: longer identifier not clipped', out.includes('DEXTestGetResponseList = 1'));
     t('identifier: exact match rewritten', out.includes('call(SchemaHTTP)'));
     t('identifier: idempotent', renameIdentifier(out, 'DEXTestGetResponse', 'SchemaHTTP') === out);
+  }
+
+  // 11. removeDestructuredProperty: the AST-track destructuring cleanup
+  {
+    // unreferenced binding is removed, siblings kept
+    const src = 'const { iin, brand } = customer.default_source;\nreturn brand;\n';
+    const out = removeDestructuredProperty(src, 'iin');
+    t('destructure: unreferenced binding removed', out.includes('const { brand } = customer.default_source;'));
+    t('destructure: sibling reference intact', out.includes('return brand;'));
+  }
+  {
+    // referenced binding => honest skip (conservative direction)
+    const src = 'const { iin, brand } = customer.default_source;\nreturn { iin, brand };\n';
+    const out = removeDestructuredProperty(src, 'iin');
+    t('destructure: referenced binding untouched', out === src);
+  }
+  {
+    // renamed entry ({ iin: bin }): reference check follows the LOCAL name
+    const used = 'const { iin: bin, brand } = card;\nconsole.log(bin);\n';
+    t('destructure: renamed binding referenced -> untouched', removeDestructuredProperty(used, 'iin') === used);
+    const unused = 'const { iin: bin, brand } = card;\nconsole.log(brand);\n';
+    t('destructure: renamed binding unreferenced -> removed', removeDestructuredProperty(unused, 'iin').includes('const { brand } = card;'));
+  }
+  {
+    // string/comment/member-access mentions never count as references
+    const src = 'const { iin, brand } = card;\n// iin was the BIN\nconst s = "iin";\nconst other = record.iin;\nreturn brand;\n';
+    const out = removeDestructuredProperty(src, 'iin');
+    t('destructure: string/comment/member mentions do not block removal', out.includes('const { brand } = card;'));
+    t('destructure: comment and string survive verbatim', out.includes('// iin was the BIN') && out.includes('"iin"') && out.includes('record.iin'));
+  }
+  {
+    // defaults and rest elements => honest skip
+    const d = 'const { iin = null, brand } = card;\nreturn brand;\n';
+    t('destructure: default value pattern untouched', removeDestructuredProperty(d, 'iin') === d);
+    const r = 'const { iin, ...rest } = card;\nreturn rest;\n';
+    t('destructure: rest pattern untouched', removeDestructuredProperty(r, 'iin') === r);
+  }
+  {
+    // nested patterns => honest skip (flat-only rule)
+    const src = 'const { card: { iin } } = charge;\nreturn 1;\n';
+    t('destructure: nested pattern untouched', removeDestructuredProperty(src, 'iin') === src);
+  }
+  {
+    // pattern empties: pure member RHS => whole declaration dropped
+    const src = 'function f(card) {\n  const { iin } = card.details;\n  return card.brand;\n}\n';
+    const out = removeDestructuredProperty(src, 'iin');
+    t('destructure: emptied pattern with pure RHS drops declaration', !out.includes('iin') && !out.includes('{}'));
+    t('destructure: no blank line left behind', out === 'function f(card) {\n  return card.brand;\n}\n');
+  }
+  {
+    // pattern empties: call RHS has side effects => kept as `const {} = rhs`
+    const src = 'const { iin } = await fetchCard(id);\nreturn 1;\n';
+    const out = removeDestructuredProperty(src, 'iin');
+    t('destructure: emptied pattern with call RHS keeps side effect', out.includes('const {} = await fetchCard(id);'));
+  }
+  {
+    // patterns inside strings/comments are never rewritten
+    const src = 'const s = "const { iin } = card;";\n// const { iin } = card;\nconst { iin, brand } = card;\nuse(brand);\n';
+    const out = removeDestructuredProperty(src, 'iin');
+    t('destructure: string literal pattern untouched', out.includes('"const { iin } = card;"'));
+    t('destructure: comment pattern untouched', out.includes('// const { iin } = card;'));
+    t('destructure: real code pattern rewritten', out.includes('const { brand } = card;'));
+    // control: prove a naive regex WOULD have hit the string literal too
+    const naive = src.replace(/\biin\s*,\s*/g, '').replace(/\{\s*iin\s*\}/g, '{}');
+    t('control: naive regex corrupts string pattern', naive.includes('"const {} = card;"'));
+  }
+  {
+    // idempotent
+    const src = 'const { iin, brand } = card;\nuse(brand);\n';
+    const once = removeDestructuredProperty(src, 'iin');
+    t('destructure: idempotent', removeDestructuredProperty(once, 'iin') === once);
   }
 
   const fails = results.filter(r => !r.pass);

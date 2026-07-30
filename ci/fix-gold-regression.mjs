@@ -326,6 +326,37 @@ const CASES = [
     minFilesChanged: 1,
   },
   {
+    fixture: 'demo-stripe-cardiin',
+    migration: 'stripe-legacy-card-iin-removal',
+    mustHave: [
+      'brand: card.brand,',
+      'last4: card.last4,',
+      'funding: c.funding,',
+      'expiry: `${c.exp_month}/${c.exp_year}`,',
+      'return source.brand;',
+      // AST-track pass: a dead destructured binding loses only the
+      // withdrawn field, siblings survive
+      'const { funding } = customer.default_source;',
+      'return funding;',
+      // guards: referenced destructuring and binding declarations survive
+      'const { iin, brand } = customer.default_source;',
+      'return { iin, brand };',
+      'const binPrefix = customer.default_source.iin;',
+      // guard: non-Stripe file with an unrelated .iin member is untouched
+      'return registry.find(record.card.iin) || null;',
+      // guard: comment mentions survive
+      '// Comment mentions survive: card.iin was the BIN read before v2349.',
+    ],
+    mustNotHave: [
+      'bin: card.iin',
+      'if (card.iin) profile.binKnown = true;',
+      'firstSix: c.iin',
+      'console.log(source.iin)',
+      'const { iin, funding }',
+    ],
+    minFilesChanged: 1,
+  },
+  {
     fixture: 'demo-stripe-boleto',
     migration: 'stripe-payment-record-boleto-tax-id-null-guard',
     mustHave: [

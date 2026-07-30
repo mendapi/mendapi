@@ -1,0 +1,27 @@
+{
+  "change_id": 61039,
+  "provider": "stripe",
+  "source": {
+    "kind": "request-prop-removed",
+    "anchor": "POST /v1/checkout/sessions",
+    "detail": "line_items[].dynamic_tax_rates"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T13:15:35.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "stripe/openapi spec3.json @ v2348 (API version 2026-06-24.dahlia)",
+    "new_version": "stripe/openapi spec3.json @ v2349 (API version 2026-07-29.dahlia)",
+    "checked": "Cached snapshots, token-level: dynamic_tax_rates token count 1 -> 0 spec-wide; the only bearer was the checkout session create line_items[] request schema, whose sibling leaves (price, quantity, adjustable_quantity, metadata, tax_rates) survive unchanged in v2349.",
+    "spec_tag": "v2349",
+    "spec_diff_evidence": "loop/cache/specs/diff-stripe-spec3-v2348-to-v2349.json"
+  },
+  "alternative_data_source": "Static line_items[].tax_rates survives for fixed rate assignment; Stripe automatic tax (automatic_tax.enabled) is the platform-level successor for dynamic rate resolution — choosing it is a business decision.",
+  "fix": {
+    "strategy": "remove-discontinued-request-param",
+    "migration_guide": "line_items[].dynamic_tax_rates on POST /v1/checkout/sessions: checkout session line items no longer accept dynamic_tax_rates (token-verified 1 -> 0 spec-wide in 2026-07-29.dahlia). Delete the parameter from create payloads. For continued tax computation either pin explicit line_items[].tax_rates (surviving sibling) or enable automatic_tax on the session; picking between them is a business decision, not part of the mechanical mend.",
+    "example_before": "line_items: [{\n  price: priceId,\n  quantity: 1,\n  dynamic_tax_rates: [txrA, txrB],\n}],",
+    "example_after": "// dynamic_tax_rates was removed from checkout session line items.\n// Use explicit tax_rates or session-level automatic_tax instead.\nline_items: [{\n  price: priceId,\n  quantity: 1,\n  tax_rates: [txrA],\n}],"
+  }
+}

@@ -25,7 +25,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkPackFreshness } from './revalidate.js';
-import { renameCall, renameIdentifier } from './astlite.js';
+import { renameCall, renameIdentifier, removeDestructuredProperty } from './astlite.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -279,6 +279,22 @@ const CF_V7_MOVED = {
   'zeroTrust.tunnels.warpConnector.connectors.get': ['tunnel_id'],
 };
 
+
+// stripe-legacy-card-iin-removal covers: the v2348 -> v2349 spec replay
+// recorded 1608 breaking rows (#60282-#61889); 1603 of them are per-operation
+// response projections of ONE schema change (the legacy shared "card" source
+// schema losing its iin property). The other five rows in the range are the
+// proof_of_registration create-param removal (#60910-#60913) and the checkout
+// dynamic_tax_rates removal (#61039), covered by their own llm-fix assets.
+// Enumerating 1603 literals would be noise; the contiguous range minus the
+// five exclusions is the same explicit declaration, mechanically.
+const CARD_IIN_COVERS = (() => {
+  const skip = new Set([60910, 60911, 60912, 60913, 61039]);
+  const out = [];
+  for (let id = 60282; id <= 61889; id++) if (!skip.has(id)) out.push(id);
+  return out;
+})();
+
 const MIGRATIONS = {
   'openai-v3-to-v4': {
     provider: 'openai',
@@ -433,6 +449,12 @@ const MIGRATIONS = {
     // existing implements clause needs clause merging and is also left
     // alone (the rule skips lines already carrying `implements`).
     covers: [134],
+    // Re-verified 2026-07-30 against stripe-node v22.4.0 (change #60020,
+    // API version 2026-07-29.dahlia): the release removes
+    // AccountCreateParams.documents.proof_of_registration and touches no
+    // HttpClient / HttpClientResponse type export, so the extends->implements
+    // rewrite target is unchanged.
+    revalidatedThrough: '2026-07-30',
     rules: [
       {
         desc: 'Rewrite `extends Stripe.HttpClient` / `extends Stripe.HttpClientResponse` class clauses to `implements`',
@@ -473,6 +495,11 @@ const MIGRATIONS = {
     // of it from response handling; settlement timing is managed by
     // Stripe at the account level, outside code reach.
     covers: [44360, 44361, 44362, 44363, 44364, 44365, 44366, 44367, 44368, 44369, 44370, 44379, 44380, 44381, 44382, 44383, 44384, 44385, 44386, 44387, 44388, 44389, 44390, 44391, 44392, 44393, 44394, 44395, 44396, 44397, 44398, 44399, 44400, 44401, 44402, 44403, 44404, 44405, 44406, 44423],
+    // Re-verified against cached v2348/v2349 snapshots (2026-07-29.dahlia
+    // batch): "preferred_settlement_speed" token count stays 0 in both —
+    // the removal this pack mends is untouched by the newer spec-diff
+    // records (all of which are the unrelated card iin sweep).
+    revalidatedThrough: '2026-07-30',
     rules: [
       {
         desc: 'Remove preferred_settlement_speed payload properties and reads from Stripe payment-intent consumers',
@@ -537,6 +564,11 @@ const MIGRATIONS = {
     // decision left to the team (fixed BGN/EUR rate), so no automatic
     // eur rewrite is attempted.
     covers: [44371, 44372, 44373, 44374, 44375, 44376, 44377, 44378, 44407, 44408, 44409, 44410, 44411, 44412, 44413, 44414, 44415, 44416, 44417, 44418, 44419, 44420, 44421, 44422],
+    // Re-verified against cached v2348/v2349 snapshots (2026-07-29.dahlia
+    // batch): "bgn" token count stays 0 in both — the tipping-block
+    // removal this pack mends is untouched by the newer spec-diff records
+    // (all of which are the unrelated card iin sweep).
+    revalidatedThrough: '2026-07-30',
     rules: [
       {
         desc: 'Remove bgn tipping currency blocks and reads from Stripe Terminal configuration consumers',
@@ -690,6 +722,12 @@ const MIGRATIONS = {
     // Multi-step dataflow (const t = ...tax_id; t.trim()) is left to the
     // AST track - miss, never mangle.
     covers: [46650, 46651, 46652, 46653, 46654, 46655, 46656, 46657, 46658, 46659],
+    // Re-verified against cached v2348/v2349 snapshots (2026-07-29.dahlia
+    // batch): payment_method_details_payment_record_boleto keeps tax_id
+    // nullable/not-required and the charge-surface schema keeps it
+    // required in both versions — the null-guard target is untouched by
+    // the newer spec-diff records (the unrelated card iin sweep).
+    revalidatedThrough: '2026-07-30',
     rules: [
       {
         desc: 'Guard dereferences of payment-record boleto tax_id with optional chaining (tax_id.<x> -> tax_id?.<x>)',
@@ -713,6 +751,86 @@ const MIGRATIONS = {
             if (/^[ \t]*(?:\/\/|\/?\*)/.test(line)) return line; // comment lines
             return line.replace(DEREF, (_m, chain, tail) => `${chain}?.${tail}`);
           }).join('\n');
+        },
+      },
+    ],
+  },
+  'stripe-legacy-card-iin-removal': {
+    provider: 'stripe',
+    title: 'Stripe legacy card objects drop the iin property (v2349)',
+    reference: 'https://github.com/stripe/openapi (spec3.json snapshots v2348 vs v2349: the shared legacy \"card\" source schema loses its iin property - spec-wide \"iin\" property token count 1 -> 0, schemas carrying an iin property go [card] -> [])',
+    // Explicit north-star coverage claims (see loop/coverage-report.mjs):
+    // spec-diff changes #60282-#61889 minus the five unrelated rows (see
+    // CARD_IIN_COVERS above) are the per-operation response projections of
+    // the single legacy card schema change. Token-verified against cached
+    // OAS snapshots (loop/cache/specs v2348/v2349): iin count 1 -> 0
+    // spec-wide with no successor - iin (first-six/BIN issuer metadata) is
+    // PCI-scoped data Stripe no longer exposes on the card object. The
+    // surviving card identity leaves (brand, funding, last4, exp_month,
+    // exp_year) are unchanged in both versions. The mend deletes reads of
+    // .iin on card objects however they are reached (customer
+    // default_source, external accounts, error.source projections alike);
+    // no substitution is attempted because no field carries the BIN.
+    covers: CARD_IIN_COVERS,
+    rules: [
+      {
+        desc: 'Remove reads of the withdrawn card.iin (BIN) property on Stripe card objects',
+        // Conservative guards: the file must clearly talk to the Stripe API
+        // before anything is rewritten. Every rewritten line must anchor on
+        // a member-access read of .iin off a value expression - the token
+        // \"iin\" (issuer identification number) does not occur as a member
+        // name outside card BIN reads in Stripe-context files. Comment
+        // lines, unbalanced lines (multi-line values), bare case labels and
+        // destructuring patterns are left to the AST track; binding
+        // declarations are kept so downstream references never become
+        // ReferenceErrors (reading the removed property degrades to
+        // undefined, the safe conservative direction).
+        detect: /[\w$\])]\s*\??\.\s*iin\b/,
+        apply: (t) => {
+          const stripeCtx = /(?:from\s*|require\s*\(\s*)['\"]stripe['\"]/.test(t) || /api\.stripe\.com/.test(t) || /\bstripe\s*\./.test(t);
+          if (!stripeCtx) return t;
+          const READ = /[\w$\])]\s*\??\.\s*iin\b/;
+          const balanced = (line) => {
+            for (const [o, c] of [['(', ')'], ['[', ']'], ['{', '}']]) {
+              if (line.split(o).length !== line.split(c).length) return false;
+            }
+            return true;
+          };
+          return t.split('\n').map((line) => {
+            if (/^[ \t]*(?:\/\/|\/\*|\*)/.test(line)) return line;
+            if (!READ.test(line)) return line;
+            if (!balanced(line)) return line;
+            if (/^[ \t]*case\b/.test(line) && /:\s*$/.test(line)) return line;
+            if (/\{[^{}]*\}\s*=/.test(line)) return line;
+            // single-line object property whose value reads .iin: drop the
+            // entry, keep siblings
+            let out = line
+              .replace(/\b[\w$]+\s*:\s*[^,{}\n]*[\w$\])]\s*\??\.\s*iin\b[^,}\n]*\s*,\s*/g, '')
+              .replace(/,\s*[\w$]+\s*:\s*[^,{}\n]*[\w$\])]\s*\??\.\s*iin\b[^,}\n]*/g, '')
+              .replace(/\{\s*[\w$]+\s*:\s*[^,{}\n]*[\w$\])]\s*\??\.\s*iin\b[^,}\n]*\s*\}/g, '{}');
+            if (out !== line) return out.trim() === '' ? null : out;
+            if (/^[ \t]*(?:const|let|var)\s+[\w$]+\s*=/.test(line)) return line;
+            // remaining balanced lines reading the withdrawn field are dead
+            // reads (assignments, conditionals, display statements)
+            return null;
+          }).filter((line) => line !== null).join('\n');
+        },
+      },
+      {
+        desc: 'Remove unreferenced iin bindings from flat card-object destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. removeDestructuredProperty enforces its own
+        // conservative guards: flat patterns only, no defaults/rest, and the
+        // bound identifier must have zero other code-region references
+        // (member access and string/comment mentions never count) — so
+        // `const { iin, brand } = src; return { iin, brand };` survives
+        // untouched while a genuinely dead `const { iin, brand } = src`
+        // binding loses only the withdrawn field.
+        detect: /\{[^{}]*\biin\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const stripeCtx = /(?:from\s*|require\s*\(\s*)['"]stripe['"]/.test(t) || /api\.stripe\.com/.test(t) || /\bstripe\s*\./.test(t);
+          if (!stripeCtx) return t;
+          return removeDestructuredProperty(t, 'iin');
         },
       },
     ],

@@ -6854,6 +6854,48 @@ function matchAgainstDb(inventory) {
   return { monitored_changes_considered: changes.length, endpoint_matches: matches };
 }
 
+// ---------- --match: join inventory endpoints against migration pack surface anchors ----------
+// Every migration pack carries an API-surface anchor set (`surfaces`:
+// 'METHOD /path' entries mechanically derived from its covered change
+// records — see revalidate.js assessPacks). A repo endpoint surface joins a
+// pack when its normalized path prefix-overlaps a pack surface path (template
+// {param} slots wildcard one segment) — the same overlap rule the staleness
+// audit uses, so a hit here means "this pack's fix target is an API surface
+// your repo calls". SDK-release packs have an honestly empty anchor set and
+// can never join here (their join lives in the sdk-call chain matcher below).
+async function matchPackSurfaces(inventory) {
+  const { assessPacks } = await import('./revalidate.js');
+  const { MIGRATIONS } = await import('./fixer.js');
+  const res = assessPacks(MIGRATIONS);
+  if (res.error) return { error: res.error };
+  const matches = [];
+  let surfacesConsidered = 0;
+  for (const pack of res.packs) {
+    const packSurfaces = pack.surfaces || [];
+    surfacesConsidered += packSurfaces.length;
+    if (!packSurfaces.length) continue;
+    const prov = inventory.providers.find((p) => p.provider === pack.provider);
+    if (!prov) continue;
+    const endpoints = prov.surfaces.filter((s) => s.kind === 'endpoint');
+    if (!endpoints.length) continue;
+    for (const ps of packSurfaces) {
+      const pp = anchorPath(ps);
+      if (!pp) continue;
+      for (const ep of endpoints) {
+        if (pathsOverlap(ep.surface, pp)) {
+          matches.push({
+            pack: pack.pack, provider: pack.provider,
+            change_ids: pack.covers || [],
+            pack_surface: ps, repo_endpoint: ep.surface,
+            evidence: ep.sites.slice(0, 3),
+          });
+        }
+      }
+    }
+  }
+  return { pack_surfaces_considered: surfacesConsidered, pack_endpoint_matches: matches };
+}
+
 // ---------- --match: join sdk-call surfaces against migration pack chains ----------
 // Packs may expose a `chains` list (documented SDK resource chains they
 // rewrite, e.g. "kv.namespaces.values.get"). A repo sdk-call surface
@@ -6947,6 +6989,18 @@ function printInventory(inv) {
     }
     out.push('');
   }
+  if (inv.pack_match) {
+    const m = inv.pack_match;
+    if (m.error) out.push(`pack match: ${m.error}`);
+    else if (!m.pack_endpoint_matches.length) out.push(`No migration pack API-surface anchors intersect this repo's endpoint surfaces (${m.pack_surfaces_considered} pack surfaces considered).`);
+    else {
+      out.push(`${m.pack_endpoint_matches.length} migration pack API surface(s) intersect your endpoints:`);
+      for (const hit of m.pack_endpoint_matches) {
+        out.push(`  ${hit.pack_surface}  <- ${hit.repo_endpoint} -> mendapi fix --migration ${hit.pack} (${hit.evidence[0].file}:${hit.evidence[0].line})`);
+      }
+    }
+    out.push('');
+  }
   if (inv.sdk_match) {
     const m = inv.sdk_match;
     if (!m.sdk_call_matches.length) out.push(`No migration pack chains intersect this repo's SDK call chains (${m.pack_chains_considered} pack chains considered).`);
@@ -6971,6 +7025,7 @@ async function main() {
   const inventory = buildInventory(args.repo);
   if (args.match) {
     inventory.match = matchAgainstDb(inventory);
+    inventory.pack_match = await matchPackSurfaces(inventory);
     inventory.sdk_match = await matchSdkCalls(inventory);
   }
 

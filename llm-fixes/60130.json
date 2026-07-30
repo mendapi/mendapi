@@ -1,0 +1,27 @@
+{
+  "change_id": 60130,
+  "provider": "stripe",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "stripe-python v15.4.0 (API version 2026-07-29.dahlia)",
+    "detail": "Remove support for proof_of_registration on AccountCreateParamsDocument; field was limited-use and is being deprecated"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T12:05:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "stripe-python v15.3.1",
+    "new_version": "stripe-python v15.4.0",
+    "checked": "Token-level verification against the published OpenAPI spec (upgraded 2026-07-30): stripe/openapi tag v2349 is the first tag pinning API version 2026-07-29.dahlia (v2344-v2348 all still pin 2026-06-24.dahlia). specdiff on v2348 -> v2349 emits 4 breaking request-prop-removed records for POST /v1/accounts at documents.proof_of_registration (including .files and .signer sub-props), while POST /v1/accounts/{account} retains the property - exactly matching the stripe-python v15.4.0 release wording that only AccountCreateParams loses the field. Original cross-confirmation (independent stripe-node v22.4.0 and stripe-python v15.4.0 release feeds naming the identical removal) remains on record as the initial adjudication basis.",
+    "spec_tag": "v2349",
+    "spec_diff_evidence": "loop/evidence/loop443-proof-of-registration-spec-verification.json"
+  },
+  "alternative_data_source": "Registration proof uploads continue via the Stripe Dashboard onboarding flow and the account onboarding AccountLink; only the typed create-param slot is removed",
+  "fix": {
+    "strategy": "remove-discontinued-request-param",
+    "migration_guide": "Mechanical removal at write sites. Search the repo for stripe.Account.create calls whose documents dict carries a proof_of_registration key (including TypedDict usages of AccountCreateParamsDocument). Delete that key from the params dict; if the file uploads backing it feed only this slot, drop the upload step too. After upgrading to stripe-python >=15.4.0, type checkers (mypy/pyright) flag remaining TypedDict usages, and the API itself rejects the param on the 2026-07-29.dahlia version, so a typecheck plus one integration call verifies the migration. No replacement param exists: registration proof is collected through hosted onboarding instead.",
+    "example_before": "stripe.Account.create(\n    type=\"custom\",\n    documents={\n        \"proof_of_registration\": {\"files\": [file_id]},\n        \"bank_account_ownership_verification\": {\"files\": [bank_file_id]},\n    },\n)",
+    "example_after": "stripe.Account.create(\n    type=\"custom\",\n    documents={\n        \"bank_account_ownership_verification\": {\"files\": [bank_file_id]},\n    },\n)\n# proof_of_registration is no longer accepted at create time;\n# collect registration proof via hosted onboarding (AccountLink)."
+  }
+}

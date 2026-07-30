@@ -1,5 +1,3 @@
-<p align="center"><img src="https://mendapi.com/assets/og.png" alt="mendapi — self-maintaining APIs, your code never leaves your machine" width="720"></p>
-
 # mendapi
 
 > **Dependabot, but for every API you depend on.**

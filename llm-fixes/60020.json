@@ -1,0 +1,27 @@
+{
+  "change_id": 60020,
+  "provider": "stripe",
+  "source": {
+    "kind": "sdk-release",
+    "anchor": "stripe-node v22.4.0 (API version 2026-07-29.dahlia)",
+    "detail": "Remove support for proof_of_registration on AccountCreateParams.documents; field was limited-use and is being deprecated"
+  },
+  "classifier": "llm-fix-v1",
+  "generated_at": "2026-07-30T12:05:00.000Z",
+  "verdict": "code-fixable",
+  "confidence": "high",
+  "spec_evidence": {
+    "old_version": "stripe-node v22.3.2",
+    "new_version": "stripe-node v22.4.0",
+    "checked": "Token-level verification against the published OpenAPI spec (upgraded 2026-07-30): stripe/openapi tag v2349 is the first tag pinning API version 2026-07-29.dahlia (v2344-v2348 all still pin 2026-06-24.dahlia). specdiff on v2348 -> v2349 emits 4 breaking request-prop-removed records for POST /v1/accounts at documents.proof_of_registration (including .files and .signer sub-props), while POST /v1/accounts/{account} retains the property - exactly matching the stripe-node v22.4.0 release wording that only AccountCreateParams loses the field. Original cross-confirmation (independent stripe-node v22.4.0 and stripe-python v15.4.0 release feeds naming the identical removal) remains on record as the initial adjudication basis.",
+    "spec_tag": "v2349",
+    "spec_diff_evidence": "loop/evidence/loop443-proof-of-registration-spec-verification.json"
+  },
+  "alternative_data_source": "Registration proof uploads continue via the Stripe Dashboard onboarding flow and the account onboarding AccountLink; only the typed create-param slot is removed",
+  "fix": {
+    "strategy": "remove-discontinued-request-param",
+    "migration_guide": "Mechanical removal at write sites. Search the repo for accounts.create calls (and TypeScript types referencing AccountCreateParams.documents) that pass a documents.proof_of_registration object. Delete that property from the params literal; if the file uploads backing it are only used for this slot, drop the upload step too. After upgrading to stripe-node >=22.4.0 the TypeScript compiler flags every remaining usage as an excess-property error, so a typecheck run doubles as the verification gate. No replacement param exists: registration proof is collected through hosted onboarding instead.",
+    "example_before": "await stripe.accounts.create({\n  type: 'custom',\n  documents: {\n    proof_of_registration: { files: [fileId] },\n    bank_account_ownership_verification: { files: [bankFileId] },\n  },\n});",
+    "example_after": "await stripe.accounts.create({\n  type: 'custom',\n  documents: {\n    bank_account_ownership_verification: { files: [bankFileId] },\n  },\n});\n// proof_of_registration is no longer accepted at create time;\n// collect registration proof via hosted onboarding (AccountLink)."
+  }
+}

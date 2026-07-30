@@ -50,6 +50,19 @@ function changeAnchor(ch) {
   return anchorPath(ch.title) || anchorPath(ch.source_url);
 }
 
+// Full "METHOD /path" surface anchor (the semantic identity of the API
+// surface a change touches). anchorPath() keeps only the path because
+// overlap matching is path-based; the method is still part of the surface
+// identity we report, so capture it separately here.
+export function anchorSurface(sourceUrlOrTitle) {
+  const m = String(sourceUrlOrTitle || '').match(/\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(\/[^\s:)]+)/);
+  return m ? `${m[1]} ${m[2]}` : null;
+}
+
+function changeSurface(ch) {
+  return anchorSurface(ch.title) || anchorSurface(ch.source_url);
+}
+
 function pathsOverlap(a_, b_) {
   const a = a_.split('/').filter(Boolean);
   const b = b_.split('/').filter(Boolean);
@@ -72,7 +85,8 @@ function chronoKey(ch) {
 
 // Assess every pack in `migrations` against the change DB at `dbPath`.
 // Returns { generated_at, db, packs: [{ pack, provider, status, baseline,
-//   covers, newer_changes: [{id, title, fetched_at, anchor}] }] }.
+//   covers, surfaces: ['METHOD /path', ...],
+//   newer_changes: [{id, title, fetched_at, anchor}] }] }.
 // status: fresh | needs-revalidation | no-covers | covers-missing
 export function assessPacks(migrations, dbPath = DEFAULT_DB_PATH) {
   if (!existsSync(dbPath)) {
@@ -100,6 +114,10 @@ export function assessPacks(migrations, dbPath = DEFAULT_DB_PATH) {
     const baseline = covered.map(chronoKey).sort().pop();
     const streams = new Set(covered.map((c) => normalizeStream(c.source_repo)));
     const coveredAnchors = covered.map(changeAnchor).filter(Boolean);
+    // API-surface anchor set: the pack's fix target expressed as upstream
+    // API semantics (METHOD /path), not as text patterns. Derived from the
+    // covered change records so it always reflects the recorded evidence.
+    const coveredSurfaces = [...new Set(covered.map(changeSurface).filter(Boolean))].sort();
 
     const newer = [];
     for (const ch of all) {
@@ -135,6 +153,7 @@ export function assessPacks(migrations, dbPath = DEFAULT_DB_PATH) {
       status: newer.length ? 'needs-revalidation' : 'fresh',
       baseline,
       covers,
+      surfaces: coveredSurfaces,
       newer_changes: newer,
     });
   }
@@ -175,6 +194,9 @@ async function main() {
     for (const p of res.packs) {
       if (p.status !== 'needs-revalidation') continue;
       console.log(`[STALE] ${p.pack} (${p.provider}) — baseline ${p.baseline}`);
+      if (p.surfaces && p.surfaces.length) {
+        console.log(`   surfaces: ${p.surfaces.slice(0, 4).join(', ')}${p.surfaces.length > 4 ? ` (+${p.surfaces.length - 4} more)` : ''}`);
+      }
       for (const n of p.newer_changes) {
         console.log(`   newer change #${n.id} (${n.published})${n.anchor ? ` ${n.anchor}` : ''}: ${n.title}`);
       }
@@ -183,7 +205,9 @@ async function main() {
     }
     if (!stale.length) console.log('All covering packs are fresh against the current change database.');
   }
-  process.exit(stale.length ? 1 : 0);
+  // Do not call process.exit() here: with piped stdout, exit() truncates
+  // pending writes at 64KiB. Setting exitCode lets Node flush fully.
+  process.exitCode = stale.length ? 1 : 0;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();

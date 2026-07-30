@@ -1,0 +1,55 @@
+# mendapi CI — offline-only checks.
+# Everything here runs with zero network access beyond checkout/setup-node:
+# no API keys, no database, no telemetry. This mirrors the product's
+# security model (local-first, no egress by default).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax check (all JS entry points)
+        run: |
+          for f in *.js; do
+            node --check "$f"
+          done
+
+      - name: Payload sanitizer self-test (metadata-only guarantee)
+        run: node payload.js --self-test
+
+      - name: CLI contract (help works, unknown command exits 2)
+        run: |
+          node cli.js --help
+          set +e
+          node cli.js nosuchcommand 2>/dev/null
+          code=$?
+          set -e
+          test "$code" -eq 2 || { echo "expected exit 2, got $code" >&2; exit 1; }
+
+      - name: No default egress (scanner, fixer, payload, review, cli)
+        run: |
+          # These modules must never contain network primitives.
+          # Any future cloud reporting must live in a dedicated module
+          # behind an explicit --report-to flag (see README security model).
+          if grep -nE "fetch\(|node:https?\b|node:net\b|require\(.https?.\)|XMLHttpRequest|WebSocket" \
+              scanner.js fixer.js payload.js review.js cli.js; then
+            echo "network primitive found in a no-egress module" >&2
+            exit 1
+          fi
+
+      - name: Fixer gold regression (diff quality, no DB required)
+        run: node ci/fix-gold-regression.mjs

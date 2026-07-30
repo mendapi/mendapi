@@ -11,8 +11,15 @@
 //
 // Usage: mendapi mcp    (then speak MCP over stdin/stdout)
 //
-// Protocol notes:
-//   - initialize / notifications/initialized / ping / tools/list / tools/call
+// Protocol notes (dual-era server, per MCP spec revision 2026-07-28):
+//   - Modern clients (2026-07-28+) send per-request metadata: every request
+//     carries _meta["io.modelcontextprotocol/protocolVersion"]. No handshake.
+//     server/discover advertises supported versions, capabilities and identity.
+//     Results carry resultType:"complete"; list results carry ttlMs/cacheScope.
+//     Unsupported versions get UnsupportedProtocolVersionError (-32022).
+//   - Legacy clients (2025-06-18 / 2025-03-26) still get the initialize
+//     handshake + ping; that path is kept intact (we are the "do not break
+//     your downstream" product — we do not break ours).
 //   - unknown methods with an id get a -32601 error; notifications are ignored
 //   - tool results follow the MCP content shape: { content: [{type:'text', text}], isError? }
 
@@ -25,8 +32,17 @@ import { createInterface } from 'node:readline';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(ROOT, 'data', 'sentinel.db');
 
-const SERVER_INFO = { name: 'mendapi', version: '0.1.0' };
-const PROTOCOL_VERSION = '2025-06-18';
+const SERVER_INFO = { name: 'mendapi', version: '0.2.0' };
+// Dual-era version support (MCP spec revision 2026-07-28, "Versioning and
+// Compatibility"): modern versions are served statelessly via per-request
+// _meta; legacy versions are served via the initialize handshake.
+const MODERN_VERSIONS = ['2026-07-28'];
+const LEGACY_VERSIONS = ['2025-06-18', '2025-03-26'];
+const PROTOCOL_VERSION = '2025-06-18'; // legacy default echoed by initialize
+const META = 'io.modelcontextprotocol/';
+// Freshness hints for CacheableResult (tools/list): the tool registry only
+// changes when the binary changes, so a long public TTL is honest.
+const LIST_TTL_MS = 3600000;
 
 // ---------- tool registry ----------
 
@@ -191,10 +207,45 @@ async function handle(msg) {
   const { id, method, params } = msg;
   const isRequest = id !== undefined && id !== null;
 
+  // ----- era detection (per-request; dual-era server, spec 2026-07-28) -----
+  // A request carrying _meta["io.modelcontextprotocol/protocolVersion"] is
+  // modern and is served statelessly. Requests without it (or `initialize`)
+  // are served under legacy semantics.
+  const meta = params && params._meta ? params._meta : undefined;
+  const requestedVersion = meta ? meta[META + 'protocolVersion'] : undefined;
+  const isModern = requestedVersion !== undefined && method !== 'initialize';
+
+  if (isModern && !MODERN_VERSIONS.includes(requestedVersion)) {
+    // UnsupportedProtocolVersionError: MUST list supported versions.
+    if (isRequest) {
+      return send({
+        jsonrpc: '2.0', id,
+        error: {
+          code: -32022,
+          message: 'Unsupported protocol version',
+          data: { supported: MODERN_VERSIONS.concat(LEGACY_VERSIONS), requested: requestedVersion },
+        },
+      });
+    }
+    return;
+  }
+
+  // Modern results carry a required resultType field and the server SHOULD
+  // identify itself in each result's _meta.
+  const modernReply = (rid, result) => reply(rid, {
+    resultType: 'complete',
+    ...result,
+    _meta: { ...(result._meta || {}), [META + 'serverInfo']: SERVER_INFO },
+  });
+  const respond = isModern ? modernReply : reply;
+
   switch (method) {
     case 'initialize':
+      // Legacy handshake path (2025-06-18 / 2025-03-26 clients). Kept intact:
+      // modern-only servers strand legacy clients with no fall-forward path.
       return reply(id, {
-        protocolVersion: (params && params.protocolVersion) || PROTOCOL_VERSION,
+        protocolVersion: LEGACY_VERSIONS.includes(params && params.protocolVersion)
+          ? params.protocolVersion : PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: SERVER_INFO,
       });
@@ -202,23 +253,43 @@ async function handle(msg) {
     case 'notifications/cancelled':
       return; // notifications: no response
     case 'ping':
-      return reply(id, {});
+      return respond(id, {});
+    case 'server/discover':
+      // Mandatory RPC in 2026-07-28: advertise supported versions, capabilities
+      // and identity. Also serves as the stdio backward-compat probe for
+      // dual-era clients. Answered even without modern _meta so probing
+      // clients always get a deterministic DiscoverResult.
+      return reply(id, {
+        resultType: 'complete',
+        supportedVersions: MODERN_VERSIONS.concat(LEGACY_VERSIONS),
+        capabilities: { tools: {} },
+        instructions:
+          'mendapi detects upstream API breaking changes and repairs affected code. ' +
+          'All tools run locally against the bundled change database; no network calls are made. ' +
+          'Typical flow: `deps` to inventory provider API surfaces, `scan` to find impacted code, ' +
+          '`changes` to inspect the change records, `fix` to preview (dry-run) or apply a migration pack.',
+        ttlMs: LIST_TTL_MS,
+        cacheScope: 'public',
+        _meta: { [META + 'serverInfo']: SERVER_INFO },
+      });
     case 'tools/list':
-      return reply(id, { tools: TOOLS });
+      // CacheableResult fields (ttlMs/cacheScope) are required on list results
+      // in 2026-07-28; harmless extras for legacy clients.
+      return respond(id, { tools: TOOLS, ttlMs: LIST_TTL_MS, cacheScope: 'public' });
     case 'tools/call': {
       const name = params && params.name;
       const impl = TOOL_IMPL[name];
       if (!impl) {
-        return reply(id, {
+        return respond(id, {
           content: [{ type: 'text', text: `Unknown tool: ${name}. Available: ${Object.keys(TOOL_IMPL).join(', ')}` }],
           isError: true,
         });
       }
       try {
         const text = await impl((params && params.arguments) || {});
-        return reply(id, { content: [{ type: 'text', text }] });
+        return respond(id, { content: [{ type: 'text', text }] });
       } catch (e) {
-        return reply(id, { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true });
+        return respond(id, { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true });
       }
     }
     default:
