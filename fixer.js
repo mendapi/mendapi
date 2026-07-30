@@ -2741,33 +2741,81 @@ const MIGRATIONS = {
             }
             return true;
           };
+          // string entries in event-type arrays are position-independent
+          // and safe to strip on the full text: '<event>',
           let out = t
-            // destructuring / inline identifier lists: drop the name, keep siblings
-            .replace(/\{([^{}\n]*\benableFunctionsExtendedMaxDuration\b[^{}\n]*)\}/g, (m, names) => {
-              if (/:/.test(names)) return m;
-              const list = names.split(',').map((n) => n.trim()).filter((n) => n && n !== FLAG);
-              return `{ ${list.join(', ')} }`;
-            })
-            // single-line object property (inline form): drop the entry, keep siblings
-            .replace(/\benableFunctionsExtendedMaxDuration\s*:\s*[^,}\n]+?\s*,\s*/g, '')
-            .replace(/,\s*enableFunctionsExtendedMaxDuration\s*:\s*[^,}\n]+/g, '')
-            .replace(/\{\s*enableFunctionsExtendedMaxDuration\s*:\s*[^,}\n]+?\s*\}/g, '{}')
-            // string entries in event-type arrays: '<event>',
             .replace(/(['"])project-functions-extended-max-duration-updated\1\s*,\s*/g, '')
             .replace(/,\s*(['"])project-functions-extended-max-duration-updated\1/g, '');
-          // whole-line removals: property lines, reads, and single-line
-          // consumers of the dead flag or event type.
-          out = out.split('\n').filter((line) => {
+          // everything else is line-scoped so destructuring patterns can be
+          // recognised and left to the AST-track rule below - a full-text
+          // property regex cannot tell an object-literal entry from a
+          // destructuring alias (`{ flag: ext } = ...`) and would strip a
+          // live binding into a ReferenceError.
+          out = out.split('\n').map((line) => {
             const hasFlag = new RegExp(`\\b${FLAG}\\b`).test(line);
             const hasEvent = line.includes(EVENT);
-            if (!hasFlag && !hasEvent) return true;
-            if (!balanced(line)) return true; // multi-line value: AST track
-            // bare `case '<event>':` label with body on following lines —
+            if (!hasFlag && !hasEvent) return line;
+            if (!balanced(line)) return line; // multi-line value: AST track
+            // destructuring patterns (plain, aliased, single- or multi-line
+            // entry lines) are left to the AST-track rule below: deleting
+            // or editing them here would drop live sibling bindings.
+            if (/\{[^{}]*\benableFunctionsExtendedMaxDuration\b[^{}]*\}\s*=/.test(line)) return line;
+            if (/^[ \t]*enableFunctionsExtendedMaxDuration\s*(?::\s*[A-Za-z_$][\w$]*)?\s*,?\s*$/.test(line)) return line;
+            // bare `case '<event>':` label with body on following lines -
             // removing only the label would merge switch branches.
-            if (/^[ \t]*case\b/.test(line) && /:\s*$/.test(line)) return true;
-            return false; // remaining balanced lines are dead reads/writes
-          }).join('\n');
+            if (/^[ \t]*case\b/.test(line) && /:\s*$/.test(line)) return line;
+            // inline identifier lists: drop the name, keep siblings
+            let edited = line.replace(/\{([^{}]*\benableFunctionsExtendedMaxDuration\b[^{}]*)\}/g, (m, names, offset, str) => {
+              if (/^\s*=[^=]/.test(str.slice(offset + m.length))) return m; // destructuring: AST track
+              if (/:/.test(names)) return m;
+              const list = names.split(',').map((n) => n.trim()).filter((n) => n !== '');
+              // only prune plain identifier lists - template-literal
+              // interpolations and member chains are not sibling names
+              if (!list.every((n) => /^[A-Za-z_$][\w$]*$/.test(n))) return m;
+              return `{ ${list.filter((n) => n !== FLAG).join(', ')} }`;
+            });
+            // single-line object property (inline form): drop the entry, keep siblings
+            edited = edited
+              .replace(/\benableFunctionsExtendedMaxDuration\s*:\s*[^,}\n]+?\s*,\s*/g, '')
+              .replace(/,\s*enableFunctionsExtendedMaxDuration\s*:\s*[^,}\n]+/g, '')
+              .replace(/\{\s*enableFunctionsExtendedMaxDuration\s*:\s*[^,}\n]+?\s*\}/g, '{}');
+            if (edited !== line) return edited.trim() === '' ? null : edited;
+            return null; // remaining balanced lines are dead reads/writes
+          }).filter((line) => line !== null).join('\n');
           return out;
+        },
+      },
+      {
+        desc: 'Remove unreferenced enableFunctionsExtendedMaxDuration bindings from flat resourceConfig destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone (multi-line patterns, aliased forms). The
+        // flag name is distinctive but not unique - in-house job configs
+        // bind it too (see the scheduler guard fixture) - so the pass
+        // layers an anchor gate on top of the primitive's guards: EVERY
+        // flat destructuring pattern in the file that binds the flag must
+        // have a right-hand side anchored to a member chain ending at
+        // .resourceConfig (the negative lookahead rejects deeper chains);
+        // one unanchored pattern (an in-house tuning row, say) and the
+        // whole file is skipped. Patterns that pass the gate go through
+        // removeDestructuredProperty, which only removes a binding when it
+        // is flat, default/rest-free and has zero other code-region
+        // references (member access and string/comment mentions never
+        // count) - so an aliased binding that stays live survives intact.
+        detect: /\{[^{}]*\benableFunctionsExtendedMaxDuration\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const vercelCtx = /api\.vercel\.com/.test(t) || /\/v\d+\/projects\b/.test(t) || /\bvercel\b/i.test(t);
+          if (!vercelCtx) return t;
+          // chain must end at .resourceConfig (the owning object itself)
+          const ANCHOR = /\.\s*resourceConfig\b(?!\s*\??\.)/;
+          const pat = /\{[^{}]*\benableFunctionsExtendedMaxDuration\b[^{}]*\}\s*=\s*([^;\n]*)/g;
+          let sawPattern = false;
+          let allAnchored = true;
+          for (const m of t.matchAll(pat)) {
+            sawPattern = true;
+            if (!ANCHOR.test(m[1])) { allAnchored = false; break; }
+          }
+          if (!sawPattern || !allAnchored) return t;
+          return removeDestructuredProperty(t, 'enableFunctionsExtendedMaxDuration');
         },
       },
     ],

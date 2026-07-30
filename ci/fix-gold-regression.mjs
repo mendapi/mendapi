@@ -276,9 +276,21 @@ const CASES = [
   {
     fixture: 'demo-vercel-extmaxdur',
     migration: 'vercel-project-extended-max-duration-removal',
-    mustHave: ["resourceConfig: { functionDefaultMemoryType: 'standard' }", 'resourceConfig: {},', 'const { functionDefaultMemoryType } = project.resourceConfig;', 'memory: functionDefaultMemoryType,', "'project-created',", "'project-removed',", 'summary.renamed += 1;', "enableFunctionsExtendedMaxDuration: true,\n  queue: 'default',", 'if (config.enableFunctionsExtendedMaxDuration) {'],
-    mustNotHave: ['project-functions-extended-max-duration-updated', 'extendedDuration:', 'durationToggles += 1', 'payload.enableFunctionsExtendedMaxDuration', '{ enableFunctionsExtendedMaxDuration, functionDefaultMemoryType }'],
-    minFilesChanged: 2,
+    mustHave: ["resourceConfig: { functionDefaultMemoryType: 'standard' }", 'resourceConfig: {},', 'const { functionDefaultMemoryType } = project.resourceConfig;', 'memory: functionDefaultMemoryType,', "'project-created',", "'project-removed',", 'summary.renamed += 1;', "enableFunctionsExtendedMaxDuration: true,\n  queue: 'default',", 'if (config.enableFunctionsExtendedMaxDuration) {',
+      // AST-track pass: dead multi-line binding in limits.js collapses to the
+      // surviving sibling; the consumer line is untouched
+      'const { functionDefaultMemoryType } = proj.resourceConfig;',
+      'return `memory tier: ${functionDefaultMemoryType}`;',
+      // reference-count guard: the aliased binding in mirror.js is still
+      // live, so the whole pattern survives untouched
+      'const { enableFunctionsExtendedMaxDuration: ext, functionDefaultMemoryType } = project.resourceConfig;',
+      'return { extended: ext === true, memory: functionDefaultMemoryType };',
+      // anchor-gate guard: the unanchored flat pattern in tuning.js keeps
+      // the whole file byte-identical even though the binding is dead
+      'const { enableFunctionsExtendedMaxDuration, cpu } = row;'],
+    mustNotHave: ['project-functions-extended-max-duration-updated', 'extendedDuration:', 'durationToggles += 1', 'payload.enableFunctionsExtendedMaxDuration', '{ enableFunctionsExtendedMaxDuration, functionDefaultMemoryType }',
+      'enableFunctionsExtendedMaxDuration,\n    functionDefaultMemoryType'],
+    minFilesChanged: 3,
   },
   {
     fixture: 'demo-stripe-settlement',
