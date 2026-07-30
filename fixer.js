@@ -1690,6 +1690,42 @@ const MIGRATIONS = {
           }).filter((line) => line !== null).join('\n');
         },
       },
+      {
+        desc: 'Remove unreferenced withdrawn-field bindings from flat apple_pay.card destructuring patterns (AST track)',
+        // AST-track pass over the destructuring patterns the line-level rule
+        // honestly leaves alone. The five withdrawn field names are generic
+        // tokens (id and number especially), so this pass adds an anchor
+        // gate on top of the primitive's own guards: for each field, EVERY
+        // flat destructuring pattern in the file that binds the name must
+        // have a right-hand side anchored to the apple_pay.card member
+        // chain — one unanchored pattern (an `id` pulled off an in-house
+        // registry row, say) and the field is skipped for the whole file.
+        // Patterns that pass the gate go through
+        // removeDestructuredProperty, which only removes a binding when it
+        // is flat, default/rest-free and has zero other code-region
+        // references (member access and string/comment mentions never
+        // count).
+        detect: /\{[^{}]*\b(?:id|number|expiry|security_code|card_type)\b[^{}]*\}\s*=/,
+        apply: (t) => {
+          const paypalCtx = /api(?:-m)?\.(?:sandbox\.)?paypal\.com/.test(t) || /\/v3\/vault\b/.test(t) || /\bpaypal\b/i.test(t);
+          const vaultCtx = /\/v3\/vault|payment[_-]?tokens|paymentTokens|setup[_-]?tokens|setupTokens/i.test(t);
+          if (!paypalCtx || !vaultCtx) return t;
+          let out = t;
+          for (const field of ['id', 'number', 'expiry', 'security_code', 'card_type']) {
+            const pat = new RegExp(`\\{[^{}]*\\b${field}\\b[^{}]*\\}\\s*=\\s*([^;\\n]*)`, 'g');
+            const anchor = /apple_pay\s*\??\.\s*card\b/;
+            let sawPattern = false;
+            let allAnchored = true;
+            for (const m of out.matchAll(pat)) {
+              sawPattern = true;
+              if (!anchor.test(m[1])) { allAnchored = false; break; }
+            }
+            if (!sawPattern || !allAnchored) continue;
+            out = removeDestructuredProperty(out, field);
+          }
+          return out;
+        },
+      },
     ],
   },
   'paypal-vault-v3-information-link-error-field-removal': {

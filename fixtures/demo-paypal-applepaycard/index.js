@@ -36,4 +36,26 @@ async function listCards(customerId, headers) {
   }));
 }
 
-module.exports = { buildCardView, listCards };
+// AST-track positive case: the expiry binding is dead code after the
+// contraction — the pass should excise only expiry from the flat
+// pattern, leaving the live last_digits binding and its reference
+// intact. The multi-line pattern is exactly what the line-level rule
+// honestly skips (no field chain on the entry line).
+async function tailOnly(id, headers) {
+  const token = await fetchToken(id, headers);
+  const {
+    expiry,
+    last_digits,
+  } = token.payment_source.apple_pay.card;
+  return last_digits;
+}
+
+// AST-track guard: the card_type binding is still referenced, so the
+// conservative reference count must leave the whole pattern untouched.
+async function kindOf(id, headers) {
+  const token = await fetchToken(id, headers);
+  const { card_type, brand } = token.payment_source.apple_pay.card;
+  return { card_type, brand };
+}
+
+module.exports = { buildCardView, listCards, tailOnly, kindOf };

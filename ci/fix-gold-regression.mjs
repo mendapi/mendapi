@@ -444,6 +444,17 @@ const CASES = [
       'pan: wallet.apple_pay.card.number,',
       'kind: wallet.apple_pay.card.card_type,',
       'ref: wallet.apple_pay?.card?.id,',
+      // AST-track pass: dead multi-line expiry binding collapses to the
+      // surviving sibling; the consumer line is untouched
+      'const { last_digits } = token.payment_source.apple_pay.card;',
+      'return last_digits;',
+      // guard: referenced destructuring pattern survives untouched
+      'const { card_type, brand } = token.payment_source.apple_pay.card;',
+      'return { card_type, brand };',
+      // anchor-gate guard: an unanchored flat pattern in registry.js keeps
+      // the whole file byte-identical even though id is a dead binding
+      'const { id, label } = row;',
+      'return label;',
     ],
     mustNotHave: [
       'src.apple_pay.card.number',
@@ -452,6 +463,7 @@ const CASES = [
       'src.apple_pay.card.security_code',
       'src.apple_pay?.card?.id',
       'apple_pay?.card?.expiry',
+      'expiry,\n    last_digits',
     ],
     minFilesChanged: 1,
   },
