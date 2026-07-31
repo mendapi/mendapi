@@ -260,7 +260,88 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "Filters",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "enum": [
+                      "id",
+                      "created_at",
+                      "prompts.prompt_id"
+                    ]
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [
+                      "eq",
+                      "neq"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "ResourceTypes",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "custom-ruleset",
+                  "widget",
+                  "gateway-policy"
+                ]
+              }
+            }
+          },
+          {
+            "name": "Mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily",
+                "weekly"
+              ]
+            }
+          },
+          {
+            "name": "UnionKey",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "a",
+                    "b",
+                    "c"
+                  ]
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          {
+            "name": "Freeform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
     "/v1/Archives": {

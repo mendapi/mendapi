@@ -16,6 +16,12 @@
 //   param-added-required    breaking   existing calls now rejected
 //   param-added-optional    additive
 //   param-now-required      breaking   optional -> required flip
+//   param-enum-value-removed breaking  an enum value was removed from a
+//                                      parameter surface (schema / array
+//                                      items / item property): senders of
+//                                      the value get rejected. Value added
+//                                      widens = silent; union-derived enum
+//                                      evidence = silent.
 //   request-prop-removed    breaking   senders of the property break
 //   request-prop-added-required breaking
 //   request-prop-added      additive
@@ -307,6 +313,38 @@ function paramConstraints(spec, schema) {
 // the false-positive-rate-first rule.
 const VACUOUS_PATTERNS = new Set(['^.*$', '.*', '^[\\S\\s]*$', '^[\\s\\S]*$', '^(.*)$']);
 
+// Enum surfaces reachable inside a parameter schema, keyed by subpath.
+// Query filter parameters commonly carry their contract in array item enums
+// (`?resource_types[]=` value lists, `?filters=[{key,operator,value}]`
+// envelopes) rather than on the parameter schema itself. oasdiff's
+// request-parameter-property-enum-value-removed is the reference case
+// (cloudflare ai-gateway logs `filters` items/key lost prompts.prompt_id,
+// resource-sharing `resource_types` items enum lost `widget`). Only plain
+// (non-union) evidence counts: enums seen through oneOf/anyOf branches are
+// approximations (a value may satisfy a sibling branch) and stay silent.
+// Subpaths: '' = the parameter schema itself, 'items/' = array item enum,
+// 'items/<prop>' = a property of an object array item.
+function paramEnumSurfaces(spec, schema) {
+  const out = new Map();
+  const s = deref(spec, schema, new Set());
+  if (!s || typeof s !== 'object') return out;
+  if (Array.isArray(s.oneOf) || Array.isArray(s.anyOf)) return out;
+  if (Array.isArray(s.enum)) out.set('', s.enum.map(String));
+  const items = s.items ? deref(spec, s.items, new Set()) : null;
+  if (items && typeof items === 'object' && !Array.isArray(items.oneOf) && !Array.isArray(items.anyOf)) {
+    if (Array.isArray(items.enum)) out.set('items/', items.enum.map(String));
+    if (items.properties && typeof items.properties === 'object') {
+      for (const [name, raw] of Object.entries(items.properties)) {
+        const p = deref(spec, raw, new Set());
+        if (p && typeof p === 'object' && !Array.isArray(p.oneOf) && !Array.isArray(p.anyOf) && Array.isArray(p.enum)) {
+          out.set(`items/${name}`, p.enum.map(String));
+        }
+      }
+    }
+  }
+  return out;
+}
+
 function extractOperations(spec) {
   // Map<`${method} ${path}`, { params: Map, requestProps: Map, responseProps: Map<status, Map> }>
   const ops = new Map();
@@ -327,6 +365,7 @@ function extractOperations(spec) {
         params.set(`${p.in || 'query'}:${p.name}`, {
           required: !!p.required,
           types: paramTypeSet(spec, p.schema),
+          enums: paramEnumSurfaces(spec, p.schema),
           ...paramConstraints(spec, p.schema),
         });
       }
@@ -681,6 +720,28 @@ export function diffSpecs(oldSpec, newSpec) {
             kind: 'param-max-length-decreased', breaking: true, anchor: key,
             detail: `${pkey}: maxLength ${meta.maxLength} -> ${next.maxLength}`,
           });
+        }
+        // Enum value REMOVED from a parameter enum surface (the schema
+        // itself, its array items, or an item property): senders of the
+        // dropped value get rejected -> breaking. Fired only on
+        // declared-to-declared evidence (both sides carry an enum at the
+        // same subpath); enum removed wholesale = widening = silent, enum
+        // introduced = handled nowhere (absence is not prior contract).
+        // Value ADDED to a parameter enum widens the accepted set = silent.
+        // oasdiff's request-parameter-property-enum-value-removed is the
+        // reference case (cloudflare filters items/key, resource_types
+        // items). Loop 479.
+        for (const [sub, oldVals] of meta.enums) {
+          const newVals = next.enums.get(sub);
+          if (!newVals) continue;
+          for (const v of oldVals) {
+            if (!newVals.includes(v)) {
+              records.push({
+                kind: 'param-enum-value-removed', breaking: true, anchor: key,
+                detail: `${pkey} ${sub ? sub + ' ' : ''}= ${v}`,
+              });
+            }
+          }
         }
         // Pattern ADDED where the old side verifiably had none. Vacuous
         // match-anything patterns reject nothing and stay silent (PayPal
