@@ -96,6 +96,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'revalidate',
+    description:
+      'Audit every migration pack for staleness against the local change database (read-only, local only). ' +
+      'Returns the revalidate report JSON: per-pack status (fresh | needs-revalidation | no-covers | covers-missing), ' +
+      'API-surface anchor set, and any newer upstream changes on the same surface. ' +
+      'A needs-revalidation pack will refuse to apply (fix exit 3) until re-verified.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        db: { type: 'string', description: 'Optional: path to an alternate change database' },
+      },
+    },
+  },
+  {
     name: 'changes',
     description:
       'Query the local API change database (read-only). Filter by provider and/or change type ' +
@@ -159,6 +173,14 @@ function toolFix(args) {
   return runCli('fixer.js', cliArgs);
 }
 
+function toolRevalidate(args) {
+  // Exit 1 (stale packs found) is part of the CLI contract; runCli already
+  // returns the stdout report either way.
+  const cliArgs = ['--json'];
+  if (args.db) cliArgs.push('--db', resolve(String(args.db)));
+  return runCli('revalidate.js', cliArgs);
+}
+
 async function toolChanges(args) {
   if (!existsSync(DB_PATH)) throw new Error('changes: no change database found — run `mendapi sync` first');
   const { DatabaseSync } = await import('node:sqlite');
@@ -187,7 +209,7 @@ async function toolChanges(args) {
   }
 }
 
-const TOOL_IMPL = { scan: toolScan, deps: toolDeps, fix: toolFix, changes: toolChanges };
+const TOOL_IMPL = { scan: toolScan, deps: toolDeps, fix: toolFix, revalidate: toolRevalidate, changes: toolChanges };
 
 // ---------- JSON-RPC plumbing ----------
 
@@ -267,7 +289,8 @@ async function handle(msg) {
           'mendapi detects upstream API breaking changes and repairs affected code. ' +
           'All tools run locally against the bundled change database; no network calls are made. ' +
           'Typical flow: `deps` to inventory provider API surfaces, `scan` to find impacted code, ' +
-          '`changes` to inspect the change records, `fix` to preview (dry-run) or apply a migration pack.',
+          '`changes` to inspect the change records, `revalidate` to audit pack freshness, ' +
+          '`fix` to preview (dry-run) or apply a migration pack.',
         ttlMs: LIST_TTL_MS,
         cacheScope: 'public',
         _meta: { [META + 'serverInfo']: SERVER_INFO },
