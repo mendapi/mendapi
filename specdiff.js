@@ -42,6 +42,14 @@
 //   response-status-removed  breaking  a 2xx status disappeared: callers
 //                                      branching on it stop matching. 4xx/5xx
 //                                      churn is deliberately silent.
+//   response-body-type-changed breaking a 2xx response body's ROOT type was
+//                                      replaced (e.g. number -> object): the
+//                                      prop-level diff is blind to scalar
+//                                      roots (empty prop map) but every
+//                                      reader of the old shape breaks.
+//                                      Known-to-known concrete root types
+//                                      only; union/untyped roots and
+//                                      annotation back-fill stay silent.
 //   param-type-narrowed      breaking   a parameter's accepted JSON type set
 //                                       shrank (e.g. oneOf[string,boolean] ->
 //                                       string): senders of the dropped type
@@ -419,11 +427,26 @@ function extractOperations(spec) {
 
       const responseProps = new Map();
       const responseStatuses = new Set();
+      // Root type of each response body (normalized, format-free). A scalar
+      // root (e.g. `type: number`) flattens to an EMPTY prop map, so a root
+      // body being replaced wholesale (number -> object) is invisible to the
+      // prop-level diff -- but every reader of the old scalar breaks.
+      // Evidence rules: known concrete type on the root schema only; union
+      // roots, untyped roots and annotation back-fill (absent -> typed) all
+      // normalize to null = no evidence, nothing fires. oasdiff's
+      // response-body-type-changed is the reference case (cloudflare POST
+      // /accounts/{account_id}/cloudforce-one/events/dataset/{dataset_id}/
+      // move 200 body number -> object). Loop 497.
+      const responseRootTypes = new Map();
       for (const [status, resp] of Object.entries(op.responses || {})) {
         responseStatuses.add(status);
         const r = deref(spec, resp, new Set());
         const schema = r?.content ? Object.values(r.content)[0]?.schema : null;
-        if (schema) responseProps.set(status, flattenProps(spec, schema));
+        if (schema) {
+          responseProps.set(status, flattenProps(spec, schema));
+          const root = deref(spec, schema, new Set());
+          responseRootTypes.set(status, normalizeType(root).type);
+        }
       }
 
       // Discriminated request unions (oneOf + discriminator.mapping): the
@@ -470,6 +493,7 @@ function extractOperations(spec) {
 
       ops.set(key, {
         params, requestProps, requestPropsDeep, responseProps, responseStatuses,
+        responseRootTypes,
         hasBody: !!op.requestBody,
         // Explicit requestBody.required flag (spec default is false). Kept
         // separately from hasBody so the optional -> required flip can be
@@ -1057,6 +1081,25 @@ export function diffSpecs(oldSpec, newSpec) {
       const n = newOp.responseProps.get(status);
       if (!o || !n) continue; // status added, or removed (handled above): skip prop diff
       diffPropMaps(o, n, 'response', `${key} -> ${status}`, records);
+      // Response body ROOT type replaced wholesale (scalar <-> object/array):
+      // a scalar root has an empty prop map, so the prop-level diff above is
+      // structurally blind to it -- yet every reader of the old shape breaks
+      // (e.g. `const count = await res.json()` now yields an object).
+      // Success statuses only (error-shape churn = generated-spec noise);
+      // known-to-known concrete types only, and only when the normalized
+      // types differ. Union/untyped roots normalize to null = silent
+      // (fail-closed). oasdiff's response-body-type-changed is the reference
+      // case (cloudflare cloudforce-one move 200: number -> object). Loop 497.
+      if (/^2\d\d$/.test(status)) {
+        const ot = oldOp.responseRootTypes?.get(status) ?? null;
+        const nt = newOp.responseRootTypes?.get(status) ?? null;
+        if (ot && nt && ot !== nt) {
+          records.push({
+            kind: 'response-body-type-changed', breaking: true,
+            anchor: `${key} -> ${status}`, detail: `${ot} -> ${nt}`,
+          });
+        }
+      }
     }
   }
   for (const [key] of newOps) {

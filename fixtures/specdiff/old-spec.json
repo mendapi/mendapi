@@ -705,6 +705,46 @@
      }
     }
    }
+  },
+  "/v1/Counters": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "number",
+         "example": 5
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Tallies": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "example": "ok"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {

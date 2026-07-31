@@ -1,7 +1,6 @@
 {
   "name": "mendapi",
   "version": "0.5.0",
-  "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
   "description": "Detect upstream API breaking changes, scan your codebase for impact, and open the fix PR.",
@@ -37,5 +36,8 @@
   "bugs": {
     "url": "https://github.com/mendapi/mendapi/issues",
     "email": "contact@mendapi.com"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

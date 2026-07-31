@@ -827,6 +827,59 @@
      }
     }
    }
+  },
+  "/v1/Counters": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "moved": {
+           "type": "number"
+          }
+         },
+         "required": [
+          "moved"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Tallies": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string",
+         "example": "ok"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
