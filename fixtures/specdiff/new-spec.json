@@ -437,6 +437,24 @@
                 "y"
               ]
             }
+          },
+          {
+            "name": "Loose",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "p",
+                "q"
+              ]
+            }
+          },
+          {
+            "name": "Widened",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }

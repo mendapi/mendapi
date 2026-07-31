@@ -369,6 +369,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Loose",
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "Widened",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "on",
+                "off"
+              ]
+            }
           }
         ]
       }

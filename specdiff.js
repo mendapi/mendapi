@@ -22,6 +22,11 @@
 //                                      the value get rejected. Value added
 //                                      widens = silent; union-derived enum
 //                                      evidence = silent.
+//   param-became-enum       breaking   a typed enum-free parameter gained a
+//                                      finite value set: every value outside
+//                                      it now rejected. Old side must be a
+//                                      plain typed schema (union / untyped =
+//                                      silent); enum removal widens = silent.
 //   request-prop-removed    breaking   senders of the property break
 //   request-prop-added-required breaking
 //   request-prop-added      additive
@@ -331,6 +336,15 @@ const VACUOUS_PATTERNS = new Set(['^.*$', '.*', '^[\\S\\s]*$', '^[\\s\\S]*$', '^
 // approximations (a value may satisfy a sibling branch) and stay silent.
 // Subpaths: '' = the parameter schema itself, 'items/' = array item enum,
 // 'items/<prop>' = a property of an object array item.
+// A parameter schema is "plain" when it resolves to a non-union object:
+// union (oneOf/anyOf) evidence is approximate (a value may satisfy a sibling
+// branch) and every enum-shaped adjudication must stay silent on it.
+function isPlainSchema(spec, schema) {
+  const s = deref(spec, schema, new Set());
+  if (!s || typeof s !== 'object') return false;
+  return !Array.isArray(s.oneOf) && !Array.isArray(s.anyOf);
+}
+
 function paramEnumSurfaces(spec, schema) {
   const out = new Map();
   const s = deref(spec, schema, new Set());
@@ -373,6 +387,7 @@ function extractOperations(spec) {
           required: !!p.required,
           types: paramTypeSet(spec, p.schema),
           enums: paramEnumSurfaces(spec, p.schema),
+          plain: isPlainSchema(spec, p.schema),
           ...paramConstraints(spec, p.schema),
         });
       }
@@ -778,6 +793,25 @@ export function diffSpecs(oldSpec, newSpec) {
               });
             }
           }
+        }
+        // Parameter BECAME an enum where the old side verifiably had a typed,
+        // enum-free, non-union schema: a finite value set now rejects every
+        // previously-valid value outside it -> breaking for senders. This is
+        // the parameter-side mirror of request-prop-became-enum (Loop 384):
+        // an enum is never a vacuous constraint, unlike numeric-bound
+        // back-fill. Fired only when BOTH sides are plain (non-union) schemas
+        // with a known old type set -- union-derived evidence is approximate
+        // and stays silent (a value may satisfy a sibling branch), and an
+        // untyped old schema gives no proof the freeform contract existed.
+        // Enum removed wholesale = widening = silent. oasdiff's
+        // request-parameter-became-enum is the reference case (cloudflare
+        // stream download_type: string -> enum [default, audio]). Loop 483.
+        if (!meta.enums.has('') && next.enums.has('')
+            && meta.plain && next.plain && meta.types) {
+          records.push({
+            kind: 'param-became-enum', breaking: true, anchor: key,
+            detail: `${pkey} enum [${next.enums.get('').join(', ')}]`,
+          });
         }
         // Pattern ADDED where the old side verifiably had none. Vacuous
         // match-anything patterns reject nothing and stay silent (PayPal
