@@ -131,7 +131,31 @@ function flattenProps(spec, schema, prefix = '', depth = 0, seen = new Set(), ou
 
   // Unwrap arrays: diff the item shape under the same path with [] marker.
   if (s.type === 'array' && s.items) {
-    return flattenProps(spec, s.items, prefix ? `${prefix}[]` : '[]', depth, seen, out, maxDepth);
+    const itemPath = prefix ? `${prefix}[]` : '[]';
+    // Record the item's OWN root type at the [] path so scalar -> object
+    // (or any concrete root type) replacements of array items are visible
+    // to the type comparison in diffPropMaps. Without this entry a scalar
+    // item produces NO map rows at all (no properties to flatten), so an
+    // item root flip like string -> object is a structural blindspot --
+    // the array-item analogue of the scalar response body root gap closed
+    // by response-body-type-changed. Fail-closed: normalizeType returns
+    // null for untyped/union items (silent), and only the type field is
+    // carried (everything else unknown), so no other comparison can ever
+    // fire from this entry. Reference case: cloudflare b61f904f->7abe8850
+    // workers dispatch_namespace binding outbound.params items string ->
+    // object (oasdiff request-property-type-changed on params/items/).
+    if (!out.has(itemPath)) {
+      const item = deref(spec, s.items, new Set(seen));
+      const { type: itemType } = normalizeType(item);
+      if (itemType) {
+        out.set(itemPath, {
+          required: false, enum: null, type: itemType, nullable: null,
+          pattern: null, maxLength: null, maxItems: null, minItems: null,
+          itemRoot: true,
+        });
+      }
+    }
+    return flattenProps(spec, s.items, itemPath, depth, seen, out, maxDepth);
   }
   // Merge allOf conservatively (union of members' properties).
   if (Array.isArray(s.allOf)) {
@@ -521,6 +545,13 @@ function parentOf(prop) {
 function diffPropMaps(oldProps, newProps, surface, anchor, records) {
   for (const [prop, meta] of oldProps) {
     if (!newProps.has(prop)) {
+      // Array item ROOT entries ('...[]', see the itemRoot marker in
+      // flattenProps) exist purely to feed the type comparison. Missing on
+      // the new side means the item went untyped/union (annotation churn,
+      // zero evidence) or the whole array prop vanished (the parent path
+      // already carries that removal) -- either way reporting removal here
+      // would be a fabricated or duplicate record. Silent.
+      if (meta.itemRoot || prop.endsWith('[]')) continue;
       records.push({
         kind: `${surface}-prop-removed`, breaking: true,
         anchor, detail: prop,
@@ -691,6 +722,10 @@ function diffPropMaps(oldProps, newProps, surface, anchor, records) {
   }
   for (const [prop, meta] of newProps) {
     if (oldProps.has(prop)) continue;
+    // Array item ROOT entries newly visible (old side untyped/union, or the
+    // array prop itself is new -- the parent path carries that) are
+    // annotation-level evidence only: silent (see itemRoot in flattenProps).
+    if (meta.itemRoot || prop.endsWith('[]')) continue;
     // A required prop nested inside a NEWLY-ADDED parent subtree is only
     // required for callers who opt into the new (optional) parent -- existing
     // requests keep working. Reporting it as added-required fabricates
@@ -725,7 +760,10 @@ function diffDeepRequestTightenings(oldDeep, newDeep, oldShallow, newShallow, an
   const invisible = (prop) => !oldShallow.has(prop) && !newShallow.has(prop);
   for (const [prop, meta] of oldDeep) {
     if (!invisible(prop)) continue;
+    // Array item ROOT entries: type-feed only, never removal evidence
+    // (same rule as the shallow pass -- see itemRoot in flattenProps).
     if (!newDeep.has(prop)) {
+      if (meta.itemRoot || prop.endsWith('[]')) continue;
       // Report the topmost removed node only: if the parent subtree is gone
       // too, the parent (or the shallow pass) carries the report.
       const parent = parentOf(prop);
@@ -734,6 +772,22 @@ function diffDeepRequestTightenings(oldDeep, newDeep, oldShallow, newShallow, an
       continue;
     }
     const next = newDeep.get(prop);
+    // Type replaced below the shallow cap: same semantics as the shallow
+    // request-prop-type-changed (senders now send the wrong type). Both
+    // sides must carry a known concrete type. Union-merged evidence is
+    // acceptable here for the SAME reason the shallow pass accepts it:
+    // the union merge drops type to null whenever branches disagree, so a
+    // surviving concrete type means every defining branch agrees -- real
+    // evidence, not approximation (unlike required/enum union merges).
+    // Reference case: cloudflare b61f904f->7abe8850 workers
+    // dispatch_namespace binding outbound.params array items string ->
+    // object at depth 4+ (oasdiff request-property-type-changed), Loop 505.
+    if (meta.type && next.type && meta.type !== next.type) {
+      records.push({
+        kind: 'request-prop-type-changed', breaking: true,
+        anchor, detail: `${prop}: ${meta.type} -> ${next.type}`,
+      });
+    }
     // Optional -> required flip below the shallow cap: same semantics as the
     // shallow request-prop-became-required (senders omitting the field now
     // rejected). Same fail-closed guards: union-derived flags never fire, and

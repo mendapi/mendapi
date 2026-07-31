@@ -745,6 +745,77 @@
      }
     }
    }
+  },
+  "/v1/Routers": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "config": {
+          "type": "object",
+          "properties": {
+           "bindings": {
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "outbound": {
+               "type": "object",
+               "properties": {
+                "params": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         },
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "labels": {
+          "type": "array",
+          "items": {}
+         },
+         "legacyList": {
+          "type": "array",
+          "items": {
+           "type": "number"
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
