@@ -277,10 +277,66 @@ function flattenProps(spec, schema, prefix = '', depth = 0, seen = new Set(), ou
     const minItems = subResolved && typeof subResolved.minItems === 'number'
       ? subResolved.minItems
       : null;
-    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems, minItems });
+    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems, minItems, reqView: objectRequiredView(spec, sub) });
     if (depth < maxDepth) flattenProps(spec, sub, path, depth + 1, new Set(seen), out, maxDepth);
   }
   return out;
+}
+
+// Required-contract view of an object-shaped schema node, for the
+// union-required tightening comparison in diffPropMaps. Two mutually
+// exclusive evidence shapes:
+//   - plainRequired: string[] -- the node is a PLAIN object (no oneOf/anyOf
+//     anywhere at the top level, allOf members merged conjunctively), and
+//     this is its effective required list. [] is real evidence ("nothing
+//     required") -- an object with no required list accepts the empty
+//     payload.
+//   - branchRequired: string[][] -- the node is a union (directly, or an
+//     allOf wrapping exactly ONE oneOf/anyOf member), one required list per
+//     branch, each merged with the conjunctive base required of sibling
+//     allOf members (allOf = all must hold).
+// Everything ambiguous resolves to { null, null } = unknown = the diff
+// layer stays silent (fail-closed): two unions inside one allOf, nested
+// unions inside a branch, unresolvable $refs, non-object nodes.
+function objectRequiredView(spec, schema) {
+  const none = { plainRequired: null, branchRequired: null };
+  const s = deref(spec, schema, new Set());
+  if (!s || typeof s !== 'object') return none;
+  let unionMembers = Array.isArray(s.oneOf) ? s.oneOf
+    : Array.isArray(s.anyOf) ? s.anyOf : null;
+  const base = [];
+  if (Array.isArray(s.allOf)) {
+    for (const raw of s.allOf) {
+      const m = deref(spec, raw, new Set());
+      if (!m || typeof m !== 'object') return none;
+      const mu = Array.isArray(m.oneOf) ? m.oneOf
+        : Array.isArray(m.anyOf) ? m.anyOf : null;
+      if (mu) {
+        if (unionMembers) return none; // two unions conjoined: unknown
+        unionMembers = mu;
+      } else if (Array.isArray(m.required)) {
+        base.push(...m.required.map(String));
+      }
+    }
+  }
+  if (Array.isArray(s.required)) base.push(...s.required.map(String));
+  if (unionMembers) {
+    const branchRequired = [];
+    for (const raw of unionMembers) {
+      const b = deref(spec, raw, new Set());
+      if (!b || typeof b !== 'object') return none;
+      if (Array.isArray(b.oneOf) || Array.isArray(b.anyOf)) return none; // nested union: unknown
+      const req = Array.isArray(b.required) ? b.required.map(String) : [];
+      branchRequired.push([...new Set([...base, ...req])]);
+    }
+    return branchRequired.length ? { plainRequired: null, branchRequired } : none;
+  }
+  // Plain-object evidence only: a concrete non-object type (or a node with
+  // no object shape at all) carries no required contract.
+  const isObjectShaped = s.type === 'object'
+    || (s.properties && typeof s.properties === 'object');
+  if (!isObjectShaped) return none;
+  return { plainRequired: [...new Set(base)], branchRequired: null };
 }
 
 // Normalize a schema node's JSON type + nullability across OAS 3.0 / 3.1.
@@ -611,6 +667,42 @@ function diffPropMaps(oldProps, newProps, surface, anchor, records) {
       }
       // Widening directions (request became nullable / response became
       // non-nullable) are non-breaking for consumers: skipped, low signal.
+    }
+    // Union-required tightening on an object-shaped request prop: the OLD
+    // node accepted the EMPTY object (plain object with no required list, or
+    // a union with at least one requirement-free branch), the NEW node is a
+    // union whose EVERY branch requires at least one property -- so callers
+    // who legitimately sent `{}` (or omitted every field) are now rejected
+    // no matter which branch validation tries. The union merge in
+    // flattenProps intentionally marks per-branch required as non-required
+    // (a prop required in one branch only is conditional), so this whole
+    // family is invisible to the became-required/added-required passes --
+    // this comparison reads the node-level required contract instead.
+    // Evidence rules, all fail-closed (objectRequiredView): request side
+    // only; both sides must resolve to a known contract (ambiguous shapes --
+    // nested unions, double unions inside allOf -- resolve to unknown and
+    // stay silent); NEW must be a union (plain-to-plain required growth is
+    // the existing added/became-required passes' territory, mutually
+    // exclusive by construction); allOf siblings merge conjunctively into
+    // every branch. The reverse direction (union -> accepts empty) widens
+    // and stays silent. oasdiff's request-property-all-of-added is the
+    // reference case (cloudflare PUT dispatch namespace script
+    // metadata.placement: plain optional-everything object -> oneOf where
+    // all 8 branches require mode/region/hostname/host -- Loop 513 adjudged
+    // real tightening, Loop 517). Detail carries the per-branch keys so the
+    // record is reviewable without re-walking the spec.
+    if (surface === 'request' && meta.reqView && next.reqView) {
+      const acceptsEmpty = (v) => (v.plainRequired ? v.plainRequired.length === 0
+        : v.branchRequired ? v.branchRequired.some((b) => b.length === 0) : null);
+      const oldEmpty = acceptsEmpty(meta.reqView);
+      const newEmpty = acceptsEmpty(next.reqView);
+      if (oldEmpty === true && newEmpty === false && next.reqView.branchRequired) {
+        records.push({
+          kind: 'request-prop-union-required-tightened', breaking: true,
+          anchor,
+          detail: `${prop}: every union branch now requires [${[...new Set(next.reqView.branchRequired.flat())].sort().join(', ')}]`,
+        });
+      }
     }
     // Pattern constraint ADDED on a request prop: values that used to pass
     // now get rejected by validation -> breaking for senders. Only fired when

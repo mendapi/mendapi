@@ -1,1085 +1,1143 @@
 {
-  "openapi": "3.0.1",
-  "info": {
-    "title": "Demo Ingest API",
-    "version": "1.0.0"
-  },
-  "paths": {
-    "/v1/Operations": {
-      "get": {
-        "operationId": "ListOperations",
-        "parameters": [
-          {
-            "name": "PageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "Realm",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "IdOrName",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "boolean"
-                }
-              ]
-            }
-          },
-          {
-            "name": "Env",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Filter",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "description": "freeform"
-            }
-          },
-          {
-            "name": "TraceId",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 68
-            }
-          },
-          {
-            "name": "Cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Label",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 40
-            }
-          },
-          {
-            "name": "Scope",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 2
-            }
-          },
-          {
-            "in": "query",
-            "name": "Query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "operations": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/LongRunningOperationResponse"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "CreateOperation",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "datasetId"
-                ],
-                "properties": {
-                  "datasetId": {
-                    "type": "string"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "FULL",
-                      "INCREMENTAL"
-                    ]
-                  },
-                  "note": {
-                    "type": "string",
-                    "nullable": true
-                  },
-                  "refCode": {
-                    "type": "string"
-                  },
-                  "channelKind": {
-                    "type": "string"
-                  },
-                  "blobShape": {
-                    "description": "freeform shape"
-                  },
-                  "slug": {
-                    "type": "string",
-                    "pattern": "^[a-z]+$"
-                  },
-                  "ledgerRef": {
-                    "type": "string"
-                  },
-                  "noteCap": {
-                    "type": "string",
-                    "maxLength": 3000
-                  },
-                  "briefCap": {
-                    "type": "string",
-                    "maxLength": 40
-                  },
-                  "memoBlock": {
-                    "type": "string"
-                  },
-                  "slotsCap": {
-                    "type": "array",
-                    "maxItems": 30,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "rosterCap": {
-                    "type": "array",
-                    "maxItems": 5,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "pileBlock": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "binCap": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "actionsList": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "zeroList": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "slackList": {
-                    "type": "array",
-                    "minItems": 3,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "mysteryList": {
-                    "description": "freeform list"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
+ "openapi": "3.0.1",
+ "info": {
+  "title": "Demo Ingest API",
+  "version": "1.0.0"
+ },
+ "paths": {
+  "/v1/Operations": {
+   "get": {
+    "operationId": "ListOperations",
+    "parameters": [
+     {
+      "name": "PageSize",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "name": "Realm",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "IdOrName",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "oneOf": [
+        {
+         "type": "string"
         },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LongRunningOperationResponse"
-                }
-              }
-            }
-          },
-          "202": {
-            "description": "Accepted (async processing)"
-          },
-          "410": {
-            "description": "Gone"
-          },
-          "429": {
-            "description": "Too many requests"
-          }
+        {
+         "type": "boolean"
         }
+       ]
       }
-    },
-    "/v1/Legacy/Sync": {
-      "post": {
-        "operationId": "LegacySync",
-        "responses": {
-          "202": {
-            "description": "Accepted"
+     },
+     {
+      "name": "Env",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Filter",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "description": "freeform"
+      }
+     },
+     {
+      "name": "TraceId",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 68
+      }
+     },
+     {
+      "name": "Cursor",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Label",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "maxLength": 40
+      }
+     },
+     {
+      "name": "Scope",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "minLength": 2
+      }
+     },
+     {
+      "in": "query",
+      "name": "Query",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "operations": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/LongRunningOperationResponse"
+           }
           }
+         }
         }
+       }
       }
-    },
-    "/v1/Reports": {
-      "get": {
-        "operationId": "ListReports",
-        "responses": {
-          "200": {
-            "description": "ok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "keptField": {
-                      "type": "string"
-                    },
-                    "movedField": {
-                      "type": "number"
-                    },
-                    "doomedField": {
-                      "type": "string"
-                    },
-                    "flavor": {
-                      "type": "string",
-                      "enum": [
-                        "sweet",
-                        "sour"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "keptField"
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "Filters",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "type": "string",
-                    "enum": [
-                      "id",
-                      "created_at",
-                      "prompts.prompt_id"
-                    ]
-                  },
-                  "operator": {
-                    "type": "string",
-                    "enum": [
-                      "eq",
-                      "neq"
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          {
-            "name": "ResourceTypes",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "custom-ruleset",
-                  "widget",
-                  "gateway-policy"
-                ]
-              }
-            }
-          },
-          {
-            "name": "Mode",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "daily",
-                "weekly"
-              ]
-            }
-          },
-          {
-            "name": "UnionKey",
-            "in": "query",
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "a",
-                    "b",
-                    "c"
-                  ]
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            }
-          },
-          {
-            "name": "Freeform",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Loose",
-            "in": "query",
-            "schema": {}
-          },
-          {
-            "name": "Widened",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "on",
-                "off"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "/v1/Archives": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "archiveId": {
-                      "type": "string"
-                    },
-                    "sealedAt": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "archiveId",
-                    "sealedAt"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "bucket": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "bucket"
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
-    },
-    "/v1/Vaults": {
-      "post": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "hub": {
-                    "type": "object",
-                    "properties": {
-                      "wallet": {
-                        "type": "object",
-                        "properties": {
-                          "card": {
-                            "type": "object",
-                            "properties": {
-                              "holder": {
-                                "type": "object",
-                                "properties": {
-                                  "number": {
-                                    "type": "string"
-                                  },
-                                  "full_name": {
-                                    "type": "string"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "enum": [
-                                      "PASSPORT",
-                                      "BUSINESS_REGISTRATION"
-                                    ]
-                                  },
-                                  "issuer": {
-                                    "type": "string"
-                                  },
-                                  "sigilRef": {
-                                    "type": "string"
-                                  },
-                                  "crestUrl": {
-                                    "type": "string",
-                                    "pattern": "^https://"
-                                  },
-                                  "imprint": {
-                                    "type": "string",
-                                    "pattern": "^[A-Z]{2}$"
-                                  }
-                                },
-                                "required": [
-                                  "number"
-                                ]
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "ok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "hub": {
-                      "type": "object",
-                      "properties": {
-                        "wallet": {
-                          "type": "object",
-                          "properties": {
-                            "card": {
-                              "type": "object",
-                              "properties": {
-                                "holder": {
-                                  "type": "object",
-                                  "properties": {
-                                    "number": {
-                                      "type": "string"
-                                    },
-                                    "full_name": {
-                                      "type": "string"
-                                    },
-                                    "kind": {
-                                      "type": "string",
-                                      "enum": [
-                                        "PASSPORT",
-                                        "BUSINESS_REGISTRATION"
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "number"
-                                  ]
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/Snapshots": {
-      "post": {
-        "responses": {
-          "202": {
-            "description": "accepted"
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/Mirrors": {
-      "post": {
-        "responses": {
-          "201": {
-            "description": "created"
-          }
-        }
-      }
-    },
-    "/v1/Transcodes": {
-      "post": {
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "data": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "data": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
-    },
-    "/v1/Drafts": {
-      "post": {
-        "responses": {
-          "201": {
-            "description": "created"
-          }
-        }
-      }
-    },
-    "/v1/Notes": {
-      "post": {
-        "operationId": "CreateNote",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "discriminator": {
-                  "propertyName": "channel",
-                  "mapping": {
-                    "email_note": "#/components/schemas/EmailNote",
-                    "web_note": "#/components/schemas/WebNote",
-                    "fax_note": "#/components/schemas/FaxNote"
-                  }
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/EmailNote"
-                  },
-                  {
-                    "$ref": "#/components/schemas/WebNote"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FaxNote"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
-    },
-    "/v1/PlainNotes": {
-      "post": {
-        "operationId": "CreatePlainNote",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/EmailNote"
-                  },
-                  {
-                    "$ref": "#/components/schemas/WebNote"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
-    },
-    "/v1/Counters": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "number",
-                  "example": 5
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/Tallies": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "example": "ok"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/Routers": {
-      "post": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "config": {
-                    "type": "object",
-                    "properties": {
-                      "bindings": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "outbound": {
-                              "type": "object",
-                              "properties": {
-                                "params": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "tags": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "labels": {
-                    "type": "array",
-                    "items": {}
-                  },
-                  "legacyList": {
-                    "type": "array",
-                    "items": {
-                      "type": "number"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/RefBodies": {
-      "post": {
-        "operationId": "createRefBody",
-        "requestBody": {
-          "$ref": "#/components/requestBodies/RefBodyUpload"
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
-    },
-    "/v1/Uploads": {
-      "post": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "type": "string"
-                  },
-                  "note": {
-                    "type": "string"
-                  },
-                  "notes": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "type": "string"
-                  },
-                  "attachments": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "meta": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "notes": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
+     }
     }
+   },
+   "post": {
+    "operationId": "CreateOperation",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "datasetId"
+        ],
+        "properties": {
+         "datasetId": {
+          "type": "string"
+         },
+         "mode": {
+          "type": "string",
+          "enum": [
+           "FULL",
+           "INCREMENTAL"
+          ]
+         },
+         "note": {
+          "type": "string",
+          "nullable": true
+         },
+         "refCode": {
+          "type": "string"
+         },
+         "channelKind": {
+          "type": "string"
+         },
+         "blobShape": {
+          "description": "freeform shape"
+         },
+         "slug": {
+          "type": "string",
+          "pattern": "^[a-z]+$"
+         },
+         "ledgerRef": {
+          "type": "string"
+         },
+         "noteCap": {
+          "type": "string",
+          "maxLength": 3000
+         },
+         "briefCap": {
+          "type": "string",
+          "maxLength": 40
+         },
+         "memoBlock": {
+          "type": "string"
+         },
+         "slotsCap": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+           "type": "string"
+          }
+         },
+         "rosterCap": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+           "type": "string"
+          }
+         },
+         "pileBlock": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "binCap": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+           "type": "string"
+          }
+         },
+         "actionsList": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "zeroList": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "slackList": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+           "type": "string"
+          }
+         },
+         "mysteryList": {
+          "description": "freeform list"
+         }
+        }
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LongRunningOperationResponse"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Accepted (async processing)"
+     },
+     "410": {
+      "description": "Gone"
+     },
+     "429": {
+      "description": "Too many requests"
+     }
+    }
+   }
   },
-  "components": {
-    "schemas": {
-      "LongRunningOperationResponse": {
+  "/v1/Legacy/Sync": {
+   "post": {
+    "operationId": "LegacySync",
+    "responses": {
+     "202": {
+      "description": "Accepted"
+     }
+    }
+   }
+  },
+  "/v1/Reports": {
+   "get": {
+    "operationId": "ListReports",
+    "responses": {
+     "200": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "keptField": {
+           "type": "string"
+          },
+          "movedField": {
+           "type": "number"
+          },
+          "doomedField": {
+           "type": "string"
+          },
+          "flavor": {
+           "type": "string",
+           "enum": [
+            "sweet",
+            "sour"
+           ]
+          }
+         },
+         "required": [
+          "keptField"
+         ]
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "Filters",
+      "in": "query",
+      "schema": {
+       "type": "array",
+       "items": {
         "type": "object",
         "properties": {
-          "operationId": {
-            "type": "string"
+         "key": {
+          "type": "string",
+          "enum": [
+           "id",
+           "created_at",
+           "prompts.prompt_id"
+          ]
+         },
+         "operator": {
+          "type": "string",
+          "enum": [
+           "eq",
+           "neq"
+          ]
+         }
+        }
+       }
+      }
+     },
+     {
+      "name": "ResourceTypes",
+      "in": "query",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "custom-ruleset",
+         "widget",
+         "gateway-policy"
+        ]
+       }
+      }
+     },
+     {
+      "name": "Mode",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "daily",
+        "weekly"
+       ]
+      }
+     },
+     {
+      "name": "UnionKey",
+      "in": "query",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "enum": [
+          "a",
+          "b",
+          "c"
+         ]
+        },
+        {
+         "type": "number"
+        }
+       ]
+      }
+     },
+     {
+      "name": "Freeform",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Loose",
+      "in": "query",
+      "schema": {}
+     },
+     {
+      "name": "Widened",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "on",
+        "off"
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "/v1/Archives": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "archiveId": {
+           "type": "string"
           },
-          "estimatedCompletionTime": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "QUEUED",
-              "RUNNING",
-              "COMPLETED",
-              "FAILED"
-            ]
-          },
-          "latitude": {
-            "type": "string"
-          },
-          "callbackUrl": {
-            "type": "string",
-            "format": "uri"
-          },
-          "failureReason": {
-            "type": "string"
-          },
-          "retryCount": {
-            "type": "integer",
-            "nullable": true
-          },
-          "traceId": {
-            "type": "string"
-          },
-          "dialect": {
-            "type": "string"
+          "sealedAt": {
+           "type": "string"
           },
           "label": {
-            "type": "string"
-          },
-          "auditTag": {
-            "type": "string"
-          },
-          "synopsisCap": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "shelfCap": {
-            "type": "array",
-            "maxItems": 30,
-            "items": {
-              "type": "string"
-            }
+           "type": "string"
           }
+         },
+         "required": [
+          "archiveId",
+          "sealedAt"
+         ]
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "bucket": {
+          "type": "string"
+         }
         },
         "required": [
-          "traceId",
-          "status"
+         "bucket"
         ]
-      },
-      "EmailNote": {
-        "type": "object",
-        "properties": {
-          "channel": {
-            "type": "string",
-            "enum": [
-              "email_note"
-            ]
-          },
-          "notify": {
-            "type": "string",
-            "enum": [
-              "push",
-              "digest",
-              "none"
-            ]
-          },
-          "level": {
-            "type": "string",
-            "enum": [
-              "low",
-              "high"
-            ]
-          },
-          "tone": {
-            "type": "string",
-            "enum": [
-              "soft",
-              "loud"
-            ]
-          },
-          "footer": {
-            "type": "string"
-          },
-          "legacy": {
-            "type": "string"
-          }
-        }
-      },
-      "WebNote": {
-        "type": "object",
-        "properties": {
-          "channel": {
-            "type": "string",
-            "enum": [
-              "web_note"
-            ]
-          },
-          "notify": {
-            "type": "string",
-            "enum": [
-              "push",
-              "digest",
-              "none"
-            ]
-          },
-          "allGone": {
-            "type": "string",
-            "enum": [
-              "keep",
-              "gone_everywhere"
-            ]
-          },
-          "tone": {
-            "type": "string",
-            "enum": [
-              "soft",
-              "loud"
-            ]
-          },
-          "footer": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "legacy": {
-            "type": "string"
-          }
-        }
-      },
-      "FaxNote": {
-        "type": "object",
-        "properties": {
-          "channel": {
-            "type": "string",
-            "enum": [
-              "fax_note"
-            ]
-          },
-          "notify": {
-            "type": "string",
-            "enum": [
-              "push",
-              "none"
-            ]
-          },
-          "tone": {
-            "type": "string",
-            "enum": [
-              "soft",
-              "loud"
-            ]
-          }
-        }
+       }
       }
+     },
+     "required": true
     },
-    "requestBodies": {
-      "RefBodyUpload": {
-        "required": true,
-        "content": {
-          "application/json": {
-            "schema": {
-              "type": "object",
-              "required": [
-                "name"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "mode": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
     }
+   }
+  },
+  "/v1/Vaults": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "hub": {
+          "type": "object",
+          "properties": {
+           "wallet": {
+            "type": "object",
+            "properties": {
+             "card": {
+              "type": "object",
+              "properties": {
+               "holder": {
+                "type": "object",
+                "properties": {
+                 "number": {
+                  "type": "string"
+                 },
+                 "full_name": {
+                  "type": "string"
+                 },
+                 "kind": {
+                  "type": "string",
+                  "enum": [
+                   "PASSPORT",
+                   "BUSINESS_REGISTRATION"
+                  ]
+                 },
+                 "issuer": {
+                  "type": "string"
+                 },
+                 "sigilRef": {
+                  "type": "string"
+                 },
+                 "crestUrl": {
+                  "type": "string",
+                  "pattern": "^https://"
+                 },
+                 "imprint": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                 }
+                },
+                "required": [
+                 "number"
+                ]
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "hub": {
+           "type": "object",
+           "properties": {
+            "wallet": {
+             "type": "object",
+             "properties": {
+              "card": {
+               "type": "object",
+               "properties": {
+                "holder": {
+                 "type": "object",
+                 "properties": {
+                  "number": {
+                   "type": "string"
+                  },
+                  "full_name": {
+                   "type": "string"
+                  },
+                  "kind": {
+                   "type": "string",
+                   "enum": [
+                    "PASSPORT",
+                    "BUSINESS_REGISTRATION"
+                   ]
+                  }
+                 },
+                 "required": [
+                  "number"
+                 ]
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Snapshots": {
+   "post": {
+    "responses": {
+     "202": {
+      "description": "accepted"
+     }
+    },
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "label": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Mirrors": {
+   "post": {
+    "responses": {
+     "201": {
+      "description": "created"
+     }
+    }
+   }
+  },
+  "/v1/Transcodes": {
+   "post": {
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/octet-stream": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "data": {
+          "type": "string"
+         }
+        }
+       }
+      },
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "data": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/Drafts": {
+   "post": {
+    "responses": {
+     "201": {
+      "description": "created"
+     }
+    }
+   }
+  },
+  "/v1/Notes": {
+   "post": {
+    "operationId": "CreateNote",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "discriminator": {
+         "propertyName": "channel",
+         "mapping": {
+          "email_note": "#/components/schemas/EmailNote",
+          "web_note": "#/components/schemas/WebNote",
+          "fax_note": "#/components/schemas/FaxNote"
+         }
+        },
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/EmailNote"
+         },
+         {
+          "$ref": "#/components/schemas/WebNote"
+         },
+         {
+          "$ref": "#/components/schemas/FaxNote"
+         }
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/PlainNotes": {
+   "post": {
+    "operationId": "CreatePlainNote",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/EmailNote"
+         },
+         {
+          "$ref": "#/components/schemas/WebNote"
+         }
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/Counters": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "number",
+         "example": 5
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Tallies": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "example": "ok"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Routers": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "config": {
+          "type": "object",
+          "properties": {
+           "bindings": {
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "outbound": {
+               "type": "object",
+               "properties": {
+                "params": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         },
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "labels": {
+          "type": "array",
+          "items": {}
+         },
+         "legacyList": {
+          "type": "array",
+          "items": {
+           "type": "number"
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/RefBodies": {
+   "post": {
+    "operationId": "createRefBody",
+    "requestBody": {
+     "$ref": "#/components/requestBodies/RefBodyUpload"
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/Uploads": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "title": {
+          "type": "string"
+         },
+         "note": {
+          "type": "string"
+         },
+         "notes": {
+          "type": "string"
+         }
+        }
+       }
+      },
+      "multipart/form-data": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "title": {
+          "type": "string"
+         },
+         "attachments": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "meta": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            }
+           }
+          }
+         },
+         "notes": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/Placements": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "placement": {
+          "type": "object",
+          "properties": {
+           "mode": {
+            "type": "string"
+           },
+           "region": {
+            "type": "string"
+           }
+          }
+         },
+         "routing": {
+          "type": "object",
+          "properties": {
+           "zone": {
+            "type": "string"
+           }
+          }
+         },
+         "target": {
+          "type": "object",
+          "required": [
+           "kind"
+          ],
+          "properties": {
+           "kind": {
+            "type": "string"
+           }
+          }
+         },
+         "policy": {
+          "type": "object",
+          "properties": {
+           "name": {
+            "type": "string"
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
   }
+ },
+ "components": {
+  "schemas": {
+   "LongRunningOperationResponse": {
+    "type": "object",
+    "properties": {
+     "operationId": {
+      "type": "string"
+     },
+     "estimatedCompletionTime": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "QUEUED",
+       "RUNNING",
+       "COMPLETED",
+       "FAILED"
+      ]
+     },
+     "latitude": {
+      "type": "string"
+     },
+     "callbackUrl": {
+      "type": "string",
+      "format": "uri"
+     },
+     "failureReason": {
+      "type": "string"
+     },
+     "retryCount": {
+      "type": "integer",
+      "nullable": true
+     },
+     "traceId": {
+      "type": "string"
+     },
+     "dialect": {
+      "type": "string"
+     },
+     "label": {
+      "type": "string"
+     },
+     "auditTag": {
+      "type": "string"
+     },
+     "synopsisCap": {
+      "type": "string",
+      "maxLength": 500
+     },
+     "shelfCap": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "traceId",
+     "status"
+    ]
+   },
+   "EmailNote": {
+    "type": "object",
+    "properties": {
+     "channel": {
+      "type": "string",
+      "enum": [
+       "email_note"
+      ]
+     },
+     "notify": {
+      "type": "string",
+      "enum": [
+       "push",
+       "digest",
+       "none"
+      ]
+     },
+     "level": {
+      "type": "string",
+      "enum": [
+       "low",
+       "high"
+      ]
+     },
+     "tone": {
+      "type": "string",
+      "enum": [
+       "soft",
+       "loud"
+      ]
+     },
+     "footer": {
+      "type": "string"
+     },
+     "legacy": {
+      "type": "string"
+     }
+    }
+   },
+   "WebNote": {
+    "type": "object",
+    "properties": {
+     "channel": {
+      "type": "string",
+      "enum": [
+       "web_note"
+      ]
+     },
+     "notify": {
+      "type": "string",
+      "enum": [
+       "push",
+       "digest",
+       "none"
+      ]
+     },
+     "allGone": {
+      "type": "string",
+      "enum": [
+       "keep",
+       "gone_everywhere"
+      ]
+     },
+     "tone": {
+      "type": "string",
+      "enum": [
+       "soft",
+       "loud"
+      ]
+     },
+     "footer": {
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
+     },
+     "legacy": {
+      "type": "string"
+     }
+    }
+   },
+   "FaxNote": {
+    "type": "object",
+    "properties": {
+     "channel": {
+      "type": "string",
+      "enum": [
+       "fax_note"
+      ]
+     },
+     "notify": {
+      "type": "string",
+      "enum": [
+       "push",
+       "none"
+      ]
+     },
+     "tone": {
+      "type": "string",
+      "enum": [
+       "soft",
+       "loud"
+      ]
+     }
+    }
+   }
+  },
+  "requestBodies": {
+   "RefBodyUpload": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "required": [
+        "name"
+       ],
+       "properties": {
+        "name": {
+         "type": "string"
+        },
+        "mode": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
 }
