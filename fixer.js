@@ -3777,8 +3777,32 @@ function runMigration(migrationName, repoPath, opts) {
   // pack's covered changes, the pack's upstream assumption may be outdated.
   // Never apply a stale pack silently — require an explicit --ack-stale after
   // the operator re-verified the rules against the current upstream.
-  const stale = checkPackFreshness(migrationName, MIGRATIONS);
+  const stale = checkPackFreshness(migrationName, MIGRATIONS, opts.db || undefined);
   if (stale && !opts.ackStale) {
+    if (opts.json) {
+      // Structured refusal on stdout so agents (including the MCP server,
+      // which returns child stdout verbatim) never have to parse the human
+      // stderr prose. Same envelope shape as a fix report; status field is
+      // the machine signal, exit code 3 stays the process-level contract.
+      const refusal = {
+        tool: 'mendapi-fixer/0.1',
+        schema_version: 1,
+        migration: migrationName,
+        provider: migration.provider,
+        mode: opts.apply ? 'apply' : 'dry-run',
+        status: 'refused-stale',
+        pack_freshness: {
+          status: 'needs-revalidation',
+          baseline: stale.baseline,
+          newer_changes: stale.newer_changes,
+        },
+        remedy: 'Audit with `mendapi revalidate`, then rerun with --ack-stale, or stamp revalidatedThrough on the pack.',
+      };
+      if (stale.suggested_revalidated_through) {
+        refusal.pack_freshness.suggested_revalidated_through = stale.suggested_revalidated_through;
+      }
+      console.log(JSON.stringify(refusal, null, 2));
+    }
     console.error(`Refusing to run migration '${migrationName}': pack needs revalidation.`);
     console.error(`Newer upstream changes on the same API surface since baseline ${stale.baseline}:`);
     for (const n of stale.newer_changes) console.error(`  #${n.id} (${n.published})${n.anchor ? ` ${n.anchor}` : ''}: ${n.title}`);
@@ -3891,7 +3915,7 @@ function runMigration(migrationName, repoPath, opts) {
 
 function main() {
   const args = parseArgs(process.argv);
-  const opts = { apply: !!args.apply, outDir: args['out-dir'], ackStale: !!args['ack-stale'], json: !!args.json, runChecks: !!args['run-checks'] };
+  const opts = { apply: !!args.apply, outDir: args['out-dir'], ackStale: !!args['ack-stale'], json: !!args.json, runChecks: !!args['run-checks'], db: typeof args.db === 'string' ? args.db : undefined };
 
   if (args['from-report']) {
     // Scanner -> fixer pipeline: pick migrations by providers found in the report.
@@ -3941,8 +3965,8 @@ function main() {
   }
 
   if (!args.repo || !args.migration) {
-    console.error('Usage: node fixer.js --repo <path> --migration <name> [--apply] [--run-checks] [--out-dir <dir>] [--ack-stale] [--json]');
-    console.error('       node fixer.js --from-report <impact.json> [--repo <path>] [--apply] [--run-checks] [--out-dir <dir>] [--json]');
+    console.error('Usage: node fixer.js --repo <path> --migration <name> [--apply] [--run-checks] [--out-dir <dir>] [--ack-stale] [--db <path>] [--json]');
+    console.error('       node fixer.js --from-report <impact.json> [--repo <path>] [--apply] [--run-checks] [--out-dir <dir>] [--db <path>] [--json]');
     console.error(`Available migrations: ${Object.keys(MIGRATIONS).join(', ')}`);
     process.exit(2);
   }
