@@ -872,6 +872,20 @@ export function diffSpecs(oldSpec, newSpec) {
       records.push({ kind: 'request-body-became-required', breaking: true, anchor: key, detail: '' });
     }
 
+    // Request body ADDED as required on an operation that previously declared
+    // no body at all: every existing caller legitimately sent no payload and
+    // now gets rejected = breaking for senders. Fired only on explicit
+    // evidence (no requestBody in OLD, requestBody with required:true in
+    // NEW). An OPTIONAL body appearing is purely additive and stays silent;
+    // body present on both sides is the became-required flip's territory
+    // (mutually exclusive guards, one change never fires two kinds).
+    // oasdiff's request-body-added-required is the reference case (cloudflare
+    // PATCH /accounts/{account_id}/brand-protection/queries
+    // b61f904f10c9 -> 7abe88500e55, Loop 490 real-gap adjudication).
+    if (!oldOp.hasBody && newOp.hasBody && newOp.bodyRequired) {
+      records.push({ kind: 'request-body-added-required', breaking: true, anchor: key, detail: '' });
+    }
+
     // Request body media type removed: callers sending that Content-Type get
     // rejected (415 or parse failure) = breaking for senders. Fired only on
     // declared-to-declared evidence (both sides have at least one media type,

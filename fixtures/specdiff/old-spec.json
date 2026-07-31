@@ -624,6 +624,15 @@
      }
     }
    }
+  },
+  "/v1/Drafts": {
+   "post": {
+    "responses": {
+     "201": {
+      "description": "created"
+     }
+    }
+   }
   }
  },
  "components": {

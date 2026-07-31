@@ -733,6 +733,29 @@
      }
     }
    }
+  },
+  "/v1/Drafts": {
+   "post": {
+    "responses": {
+     "201": {
+      "description": "created"
+     }
+    },
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "note": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
