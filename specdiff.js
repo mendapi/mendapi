@@ -277,7 +277,7 @@ function flattenProps(spec, schema, prefix = '', depth = 0, seen = new Set(), ou
     const minItems = subResolved && typeof subResolved.minItems === 'number'
       ? subResolved.minItems
       : null;
-    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems, minItems, reqView: objectRequiredView(spec, sub) });
+    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems, minItems, reqView: objectRequiredView(spec, sub), strView: stringDomainView(spec, sub) });
     if (depth < maxDepth) flattenProps(spec, sub, path, depth + 1, new Set(seen), out, maxDepth);
   }
   return out;
@@ -337,6 +337,56 @@ function objectRequiredView(spec, schema) {
     || (s.properties && typeof s.properties === 'object');
   if (!isObjectShaped) return none;
   return { plainRequired: [...new Set(base)], branchRequired: null };
+}
+
+// String value-domain view of a schema node, for the union-branch enum
+// tightening comparison in diffPropMaps. Answers ONE question with explicit
+// evidence: does this node accept ANY free-form string?
+//   - acceptsAny: true  -- at least one branch (or the plain node itself) is
+//     an unconstrained string (no enum, no non-vacuous pattern), so every
+//     string value a caller sends is accepted somewhere.
+//   - acceptsAny: false -- every branch is a string constrained by an enum
+//     or a non-vacuous pattern: the free-form value domain is gone.
+//   - acceptsAny: null  -- unknown (fail-closed, diff layer stays silent):
+//     any non-string branch, nested union, allOf wrapping, or unresolvable
+//     node poisons the whole view. Length bounds are deliberately NOT
+//     treated as domain constraints here (bound churn has its own
+//     adjudicated lanes); vacuous patterns (^.*$ family) reject nothing and
+//     count as unconstrained.
+function stringDomainView(spec, schema) {
+  const none = { acceptsAny: null, isUnion: false, constraints: null };
+  const s = deref(spec, schema, new Set());
+  if (!s || typeof s !== 'object') return none;
+  if (Array.isArray(s.allOf)) return none; // conjunctive wrapping: unknown
+  const branchView = (node) => {
+    const b = deref(spec, node, new Set());
+    if (!b || typeof b !== 'object') return null;
+    if (Array.isArray(b.oneOf) || Array.isArray(b.anyOf) || Array.isArray(b.allOf)) return null;
+    const { type } = normalizeType(b);
+    if (type !== 'string') return null;
+    const hasEnum = Array.isArray(b.enum) && b.enum.length > 0;
+    const hasPattern = typeof b.pattern === 'string' && !VACUOUS_PATTERNS.has(b.pattern);
+    return (hasEnum || hasPattern) ? false : true;
+  };
+  const branches = Array.isArray(s.oneOf) ? s.oneOf
+    : Array.isArray(s.anyOf) ? s.anyOf : null;
+  if (branches) {
+    if (!branches.length) return none;
+    let any = false;
+    const constraints = [];
+    for (const raw of branches) {
+      const v = branchView(raw);
+      if (v === null) return none; // unknown branch poisons the view
+      if (v === true) { any = true; continue; }
+      const b = deref(spec, raw, new Set());
+      if (Array.isArray(b.enum) && b.enum.length) constraints.push(`enum [${b.enum.map(String).join(', ')}]`);
+      else if (typeof b.pattern === 'string') constraints.push(`pattern ${b.pattern}`);
+    }
+    return { acceptsAny: any, isUnion: true, constraints };
+  }
+  const v = branchView(schema);
+  if (v === null) return none;
+  return { acceptsAny: v, isUnion: false, constraints: null };
 }
 
 // Normalize a schema node's JSON type + nullability across OAS 3.0 / 3.1.
@@ -745,6 +795,35 @@ function diffPropMaps(oldProps, newProps, surface, anchor, records) {
       records.push({
         kind: 'request-prop-became-enum', breaking: true,
         anchor, detail: `${prop} enum [${next.enum.join(', ')}]`,
+      });
+    }
+    // Union-branch string-domain tightening: a request prop whose OLD shape
+    // accepted ANY free-form string (a plain unconstrained string, or a
+    // union with at least one unconstrained string branch) became a union
+    // where EVERY branch is constrained (enum or non-vacuous pattern) -- so
+    // callers sending values outside the constrained sets are now rejected
+    // no matter which branch validation tries. The plain->enum case is the
+    // existing request-prop-became-enum lane (mutually exclusive: this one
+    // requires the NEW side to be a union); the union merge in flattenProps
+    // drops per-branch enums to unknown by design, making this family
+    // invisible to that lane. Evidence rules, all fail-closed
+    // (stringDomainView): request side only; both sides must resolve to a
+    // known string domain (any non-string branch, nested union, or allOf
+    // wrapping resolves to unknown and stays silent); vacuous patterns count
+    // as unconstrained; the reverse direction (constrained -> accepts any)
+    // widens and stays silent. oasdiff's request-property-became-enum on a
+    // union node is the reference case (vercel v1.28.10->v1.28.11 POST
+    // /v1/connect/token/{connector}/import tokens[].environment: anyOf
+    // [free string, ^env_ string] -> anyOf [enum {development, preview,
+    // production}, ^env_ string]). Detail carries the per-branch
+    // constraints so the record is reviewable without re-walking the spec.
+    if (surface === 'request' && meta.strView && next.strView
+        && meta.strView.acceptsAny === true && next.strView.acceptsAny === false
+        && next.strView.isUnion) {
+      records.push({
+        kind: 'request-prop-union-enum-tightened', breaking: true,
+        anchor,
+        detail: `${prop}: every union branch now constrained (${(next.strView.constraints || []).join('; ')})`,
       });
     }
     // Request prop maxLength DECREASED: values that used to pass length
