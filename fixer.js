@@ -25,7 +25,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkPackFreshness } from './revalidate.js';
-import { renameCall, renameIdentifier, removeDestructuredProperty } from './astlite.js';
+import { renameCall, renameIdentifier, removeDestructuredProperty, replaceCalls } from './astlite.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -3352,6 +3352,70 @@ const MIGRATIONS = {
       },
     ],
   },
+  'firebase-ai-vertexai-to-agent-platform-backend': {
+    provider: 'firebase',
+    title: 'Firebase AI SDK 12.17.0: VertexAIBackend deprecated in favor of AgentPlatformBackend (default location moves to global)',
+    reference: 'https://github.com/firebase/firebase-js-sdk/releases/tag/firebase%4012.17.0 (@firebase/ai@2.14.0, PR #10184)',
+    // Explicit north-star coverage claim (see loop/coverage-report.mjs):
+    // change #103612 is the firebase 12.17.0 release whose only
+    // breaking-flagged item is the VertexAIBackend -> AgentPlatformBackend
+    // rename. The successor has an identical constructor surface; the only
+    // behavioral difference is the default location (us-central1 -> global).
+    // The mend therefore pins 'us-central1' explicitly on bare constructor
+    // calls (preserving the legacy default exactly, per the release notes'
+    // own migration instruction) and renames every other code reference
+    // (imports, explicit-argument constructions, instanceof/type positions).
+    covers: [103612],
+    rules: [
+      {
+        desc: "Pin the legacy default location on bare VertexAIBackend() constructions: new VertexAIBackend() -> new AgentPlatformBackend('us-central1') (syntax-aware)",
+        // Conservative guard: the file must import the firebase/ai (or the
+        // scoped @firebase/ai) module — in-house classes that reuse the
+        // VertexAIBackend name never match. Only zero-argument constructor
+        // calls get the pinned region; explicit-argument calls keep their
+        // argument and are handled by the rename rule below. Rewrites go
+        // through astlite replaceCalls, so mentions of the legacy name in
+        // strings, template literals, and comments survive untouched.
+        detect: /new\s+VertexAIBackend\s*\(\s*\)/,
+        apply: (t) => {
+          if (!hasFirebaseAiImport(t)) return t;
+          return replaceCalls(t, /new\s+VertexAIBackend\b/, (site, cur) => {
+            const inner = cur.slice(site.argsStart + 1, site.argsEnd).trim();
+            if (inner !== '') return null; // explicit argument: rename rule handles it
+            return "new AgentPlatformBackend('us-central1')";
+          });
+        },
+      },
+      {
+        desc: 'Rename remaining VertexAIBackend code references to AgentPlatformBackend (imports, constructions with explicit location, instanceof, type positions; syntax-aware)',
+        // Runs after the pinning rule, so every surviving construction
+        // already carries an explicit location and the rename is purely
+        // mechanical. Import destructuring lists are deduplicated afterwards
+        // so a file that already imports the successor never ends up with a
+        // duplicate binding. Identifier rename is astlite-based: strings,
+        // template-literal text, and prose comments keep the legacy name.
+        detect: /\bVertexAIBackend\b/,
+        apply: (t) => {
+          if (!hasFirebaseAiImport(t)) return t;
+          let out = renameIdentifier(t, 'VertexAIBackend', 'AgentPlatformBackend');
+          // Deduplicate names inside firebase/ai import/require destructuring lists.
+          out = out.replace(
+            /\{([^{}]*)\}(\s*=\s*require\((['"])(?:@firebase|firebase)\/ai\3\)|\s*from\s*(['"])(?:@firebase|firebase)\/ai\4)/g,
+            (_m, names, tail) => {
+              const seen = new Set();
+              const list = names.split(',').map((n) => n.trim()).filter((n) => {
+                if (!n || seen.has(n)) return false;
+                seen.add(n);
+                return true;
+              });
+              return `{ ${list.join(', ')} }${tail}`;
+            },
+          );
+          return out;
+        },
+      },
+    ],
+  },
   'slack-cli-hooks-file-move': {
     provider: 'slack',
     title: 'Slack CLI 3.0.0: slack.json relocated to .slack/hooks.json (project config move)',
@@ -3426,6 +3490,13 @@ const MIGRATIONS = {
     ],
   },
 };
+
+// True when the file imports/requires the Firebase AI module (firebase/ai or
+// the scoped @firebase/ai package). Context guard for the firebase pack: the
+// VertexAIBackend token on in-house classes never matches without it.
+function hasFirebaseAiImport(t) {
+  return /require\((['"])(?:@firebase|firebase)\/ai\1\)|from\s*(['"])(?:@firebase|firebase)\/ai\2/.test(t);
+}
 
 // True when the file imports/requires the cloudflare SDK package (bare
 // 'cloudflare' or a 'cloudflare/...' subpath). Used as a conservative guard

@@ -737,6 +737,37 @@ const CASES = [
     minFilesChanged: 1,
   },
   {
+    fixture: 'demo-firebase-vertexai',
+    migration: 'firebase-ai-vertexai-to-agent-platform-backend',
+    mustHave: [
+      // bare constructor gets the legacy default pinned explicitly
+      "const ai = getAI(app, { backend: new AgentPlatformBackend('us-central1') });",
+      // explicit-region construction keeps its argument
+      "new AgentPlatformBackend('europe-west4')",
+      'new AgentPlatformBackend(region)',
+      // instanceof and import positions renamed
+      'if (backend instanceof AgentPlatformBackend) {',
+      "const { getAI, getGenerativeModel, AgentPlatformBackend } = require('firebase/ai');",
+      // partially migrated import list deduplicated to a single successor binding
+      "const { getAI, AgentPlatformBackend } = require('firebase/ai');",
+      // string/template/comment mentions of the legacy name survive untouched
+      "'audit every new VertexAIBackend( call before upgrading'",
+      '`falling back to VertexAIBackend region ${region}`',
+      '// NOTE: VertexAIBackend is being phased out upstream; see the 12.17.0 notes.',
+      // context guard: the in-house class without a firebase/ai import stays put
+      'class VertexAIBackend {',
+      'return new VertexAIBackend();',
+    ],
+    mustNotHave: [
+      'backend: new VertexAIBackend()',
+      "new VertexAIBackend('europe-west4')",
+      'instanceof VertexAIBackend',
+      'getGenerativeModel, VertexAIBackend }',
+      'VertexAIBackend, AgentPlatformBackend }',
+    ],
+    minFilesChanged: 2,
+  },
+  {
     fixture: 'demo-slack-cli',
     migration: 'slack-cli-hooks-file-move',
     mustHave: ["readFileSync('.slack/hooks.json', 'utf8')", "existsSync('.slack/hooks.json')", "'backups/team-slack.json'", "'backups/workspace-slack.json.bak'"],
