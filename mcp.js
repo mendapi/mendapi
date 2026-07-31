@@ -90,6 +90,8 @@ const TOOLS = [
         repo: { type: 'string', description: 'Path to the repository to fix' },
         migration: { type: 'string', description: 'Migration pack name (see `mendapi fix` for the registry)' },
         apply: { type: 'boolean', description: 'Actually rewrite files (default false = dry-run preview)' },
+        run_checks: { type: 'boolean', description: 'With apply=true, also run the repo\'s own test/typecheck scripts after the rewrite and report them in verification.repo_checks (default false; without apply it reports status=skipped with the reason)' },
+        ack_stale: { type: 'boolean', description: 'Acknowledge a needs-revalidation pack and run it anyway (default false). Only set after auditing the pack with the revalidate tool — a stale pack otherwise refuses to run (fix exit 3)' },
         out_dir: { type: 'string', description: 'Optional: directory for the patch + report artifacts' },
       },
       required: ['repo', 'migration'],
@@ -169,6 +171,8 @@ function toolFix(args) {
   if (!existsSync(repo)) throw new Error(`fix: repo not found: ${repo}`);
   const cliArgs = ['--repo', repo, '--migration', String(args.migration), '--json'];
   if (args.apply) cliArgs.push('--apply');
+  if (args.run_checks) cliArgs.push('--run-checks');
+  if (args.ack_stale) cliArgs.push('--ack-stale');
   if (args.out_dir) cliArgs.push('--out-dir', resolve(String(args.out_dir)));
   return runCli('fixer.js', cliArgs);
 }
