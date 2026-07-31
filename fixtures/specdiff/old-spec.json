@@ -185,6 +185,35 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "binCap": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "actionsList": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "zeroList": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "slackList": {
+                    "type": "array",
+                    "minItems": 3,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "mysteryList": {
+                    "description": "freeform list"
                   }
                 }
               }

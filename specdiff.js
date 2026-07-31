@@ -227,7 +227,14 @@ function flattenProps(spec, schema, prefix = '', depth = 0, seen = new Set(), ou
     const maxItems = subResolved && typeof subResolved.maxItems === 'number'
       ? subResolved.maxItems
       : null;
-    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems });
+    // minItems: explicit-only capture, like maxItems. Absent stays null
+    // (unknown), but see the firing rule in diffPropMaps: unlike absent
+    // minLength (vacuous "0" back-fill, adjudicated silent), an INTRODUCED
+    // minItems >= 1 is never vacuous -- it always rejects the empty array.
+    const minItems = subResolved && typeof subResolved.minItems === 'number'
+      ? subResolved.minItems
+      : null;
+    out.set(path, { required: required.has(name), enum: enumVals, type, nullable, pattern, maxLength, maxItems, minItems });
     if (depth < maxDepth) flattenProps(spec, sub, path, depth + 1, new Set(seen), out, maxDepth);
   }
   return out;
@@ -525,6 +532,35 @@ function diffPropMaps(oldProps, newProps, surface, anchor, records) {
       records.push({
         kind: 'request-prop-max-items-decreased', breaking: true,
         anchor, detail: `${prop}: maxItems ${meta.maxItems} -> ${next.maxItems}`,
+      });
+    }
+    // Request prop minItems INCREASED (or introduced at >= 1): arrays that
+    // used to pass cardinality validation now get rejected -> breaking for
+    // senders. Two evidence shapes fire, both fail-closed:
+    //   (a) explicit-to-explicit increase (both sides declare numeric
+    //       minItems, new > old), mirroring the max-side kinds;
+    //   (b) INTRODUCTION on a prop whose old type is verifiably `array` and
+    //       carried no minItems. Unlike absent minLength (adjudicated as
+    //       vacuous "0" annotation back-fill, Loop 389), a minItems >= 1 is
+    //       never vacuous -- it always rejects the empty array, which the
+    //       old schema accepted. Same reasoning as the enum-introduced kind
+    //       (request-prop-became-enum, Loop 384). Introduction at 0 is a
+    //       no-op annotation: silent. Union-derived evidence never fires;
+    //       decreases and every response-side direction are widening /
+    //       reader-tolerant churn: deliberately silent. Reference case:
+    //       cloudflare b61f904f->7abe8850 POST /zones/{zone_id}/email/
+    //       routing/rules `actions` minItems absent -> 1 (plus catch_all /
+    //       {rule_identifier} PUT and POST /certificates `hostnames`),
+    //       oasdiff request-property-min-items-increased, Loop 473
+    //       adjudicated real gaps. Loop 480.
+    if (surface === 'request'
+        && typeof next.minItems === 'number' && next.minItems >= 1
+        && !meta.viaUnion && !next.viaUnion
+        && ((typeof meta.minItems === 'number' && next.minItems > meta.minItems)
+          || (meta.minItems === null && meta.type === 'array'))) {
+      records.push({
+        kind: 'request-prop-min-items-increased', breaking: true,
+        anchor, detail: `${prop}: minItems ${typeof meta.minItems === 'number' ? meta.minItems : 'none'} -> ${next.minItems}`,
       });
     }
     if (meta.enum && next.enum) {
