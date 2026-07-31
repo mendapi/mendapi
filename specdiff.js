@@ -432,8 +432,16 @@ function extractOperations(spec) {
 
       let requestProps = new Map();
       let requestPropsDeep = new Map();
-      const reqSchema = op.requestBody?.content
-        ? Object.values(op.requestBody.content)[0]?.schema
+      // requestBody may itself be a $ref (`#/components/requestBodies/*` --
+      // cloudflare uses ~50 of those), so deref BEFORE reading .content.
+      // Reading op.requestBody.content directly left every $ref-shaped body
+      // with an empty request surface: cloudflare POST /workers/scripts/
+      // {script_name}/versions and PUT dispatch namespace script were fully
+      // invisible to the request-side diff. Loop 508. (Response side already
+      // derefs; this closes the request-side counterpart.)
+      const rbody = deref(spec, op.requestBody, new Set());
+      const reqSchema = rbody?.content
+        ? Object.values(rbody.content)[0]?.schema
         : null;
       if (reqSchema) {
         requestProps = flattenProps(spec, reqSchema);
@@ -505,11 +513,10 @@ function extractOperations(spec) {
         }
       }
 
-      // Request body media types (content map keys). requestBody may itself
-      // be a $ref (cloudflare uses ~50 of those), so deref before reading.
-      // Used by the media-type-removed pass only; empty set = no evidence
+      // Request body media types (content map keys), read from the same
+      // deref'd body as the request surface above. Used by the
+      // media-type-removed pass only; empty set = no evidence
       // (fail-closed, nothing fires).
-      const rbody = deref(spec, op.requestBody, new Set());
       const bodyMediaTypes = new Set(
         rbody && rbody.content && typeof rbody.content === 'object'
           ? Object.keys(rbody.content) : [],

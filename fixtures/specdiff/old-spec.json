@@ -816,6 +816,19 @@
      }
     }
    }
+  },
+  "/v1/RefBodies": {
+   "post": {
+    "operationId": "createRefBody",
+    "requestBody": {
+     "$ref": "#/components/requestBodies/RefBodyUpload"
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
   }
  },
  "components": {
@@ -985,6 +998,29 @@
        "soft",
        "loud"
       ]
+     }
+    }
+   }
+  },
+  "requestBodies": {
+   "RefBodyUpload": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "required": [
+        "name"
+       ],
+       "properties": {
+        "name": {
+         "type": "string"
+        },
+        "mode": {
+         "type": "string"
+        }
+       }
+      }
      }
     }
    }
