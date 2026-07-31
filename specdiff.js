@@ -443,6 +443,30 @@ function extractOperations(spec) {
       const reqSchema = rbody?.content
         ? Object.values(rbody.content)[0]?.schema
         : null;
+
+      // Per-media request surfaces. The primary pass below reads only the
+      // FIRST media type's schema, which leaves every other media type's
+      // request surface invisible whenever a body declares several -- e.g.
+      // cloudflare PUT dispatch namespace script lists application/javascript
+      // (a string scalar) FIRST and multipart/form-data second, so the
+      // multipart tightening (outbound.params[] string -> object) never
+      // reached the diff. Loop 510. Senders pick a Content-Type and are bound
+      // by THAT media's schema, so the extra pass in diffSpecs compares each
+      // media type present on BOTH sides by name (media added/removed is
+      // lifecycle churn already covered by request-media-type-removed).
+      // The first-media maps above are kept as-is: primary-pass behaviour
+      // stays bit-for-bit unchanged.
+      const requestPropsByMedia = new Map();
+      if (rbody && rbody.content && typeof rbody.content === 'object') {
+        for (const [mt, mo] of Object.entries(rbody.content)) {
+          const schema = mo && typeof mo === 'object' ? mo.schema : null;
+          if (!schema) continue;
+          requestPropsByMedia.set(mt, {
+            props: flattenProps(spec, schema),
+            deep: flattenProps(spec, schema, '', 0, new Set(), new Map(), DEEP_PROP_DEPTH),
+          });
+        }
+      }
       if (reqSchema) {
         requestProps = flattenProps(spec, reqSchema);
         // Deep request map for the tightening pass (see
@@ -531,6 +555,7 @@ function extractOperations(spec) {
         // detected on declared-to-declared evidence only.
         bodyRequired: !!(op.requestBody && op.requestBody.required === true),
         bodyMediaTypes,
+        requestPropsByMedia,
         requestBranches,
       });
     }
@@ -1046,6 +1071,41 @@ export function diffSpecs(oldSpec, newSpec) {
     diffPropMaps(oldOp.requestProps, newOp.requestProps, 'request', key, records);
     diffDeepRequestTightenings(oldOp.requestPropsDeep, newOp.requestPropsDeep,
       oldOp.requestProps, newOp.requestProps, key, records);
+
+    // Secondary per-media request pass (Loop 510). The primary pass above
+    // reads only the FIRST media type's schema on each side, so when a body
+    // declares several media types every other media's request surface is
+    // invisible -- cloudflare PUT dispatch namespace script lists
+    // application/javascript (string scalar) first and multipart/form-data
+    // second, hiding the multipart outbound.params[] string -> object
+    // tightening. Here every media type present on BOTH sides by name gets
+    // the same shallow + deep diff. Fail-closed rules:
+    //   - identity is the media type name on both sides (media added or
+    //     removed is lifecycle churn: request-media-type-removed covers it);
+    //   - records identical (kind + detail) to one already filed at this
+    //     anchor are dropped, so a schema shared across media types (the
+    //     common generator layout) never double-fires -- primary-pass
+    //     output is bit-for-bit unchanged when all media share one schema;
+    //   - genuinely media-specific findings carry no media marker in detail
+    //     on purpose: the anchor contract (endpoint + prop path) stays
+    //     stable for pack matching and the parity harness.
+    if (oldOp.requestPropsByMedia.size > 0 && newOp.requestPropsByMedia.size > 0) {
+      const seen = new Set(records.map((r) => `${r.kind}\u0000${r.anchor}\u0000${r.detail}`));
+      for (const [mt, oldSurf] of oldOp.requestPropsByMedia) {
+        const newSurf = newOp.requestPropsByMedia.get(mt);
+        if (!newSurf) continue;
+        const extra = [];
+        diffPropMaps(oldSurf.props, newSurf.props, 'request', key, extra);
+        diffDeepRequestTightenings(oldSurf.deep, newSurf.deep,
+          oldSurf.props, newSurf.props, key, extra);
+        for (const r of extra) {
+          const sig = `${r.kind}\u0000${r.anchor}\u0000${r.detail}`;
+          if (seen.has(sig)) continue;
+          seen.add(sig);
+          records.push(r);
+        }
+      }
+    }
 
     // Discriminated request branch tightenings: enum value removed INSIDE a
     // discriminator-mapped branch. The union-merged shallow pass takes the
