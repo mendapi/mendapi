@@ -520,6 +520,14 @@ function extractOperations(spec) {
           requestPropsByMedia.set(mt, {
             props: flattenProps(spec, schema),
             deep: flattenProps(spec, schema, '', 0, new Set(), new Map(), DEEP_PROP_DEPTH),
+            // Required-contract view of the body ROOT itself. The
+            // union-required tightening comparison in diffPropMaps runs on
+            // PROP entries only, so when the body root is the union (e.g.
+            // cloudflare d1 /query: oneOf[single query, multiple queries]
+            // at the top level) the whole family is invisible there -- the
+            // root has no prop entry. Same root-blindness family as the
+            // scalar response root (Loop 497). Loop 519.
+            rootReqView: objectRequiredView(spec, schema),
           });
         }
       }
@@ -1187,6 +1195,31 @@ export function diffSpecs(oldSpec, newSpec) {
         const newSurf = newOp.requestPropsByMedia.get(mt);
         if (!newSurf) continue;
         const extra = [];
+        // Union-required tightening on the body ROOT itself (Loop 519).
+        // The prop-level comparison inside diffPropMaps never sees the root
+        // node (it has no prop entry), so a top-level oneOf whose every
+        // branch now requires a property is invisible there -- cloudflare
+        // POST d1 /query and /raw are the reference case (oneOf[single
+        // query, multiple queries]: the requirement-free `multiple queries`
+        // branch gained required [batch], so `{}` senders who used to pass
+        // that branch are rejected by every branch). Same fail-closed rules
+        // as the prop-level pass: both sides must resolve to a known
+        // contract, OLD must accept the empty payload, NEW must be a union
+        // with every branch requiring something. Detail uses the stable
+        // `body root` token (there is no prop path at the root).
+        if (oldSurf.rootReqView && newSurf.rootReqView) {
+          const acceptsEmpty = (v) => (v.plainRequired ? v.plainRequired.length === 0
+            : v.branchRequired ? v.branchRequired.some((b) => b.length === 0) : null);
+          if (acceptsEmpty(oldSurf.rootReqView) === true
+              && acceptsEmpty(newSurf.rootReqView) === false
+              && newSurf.rootReqView.branchRequired) {
+            extra.push({
+              kind: 'request-prop-union-required-tightened', breaking: true,
+              anchor: key,
+              detail: `body root: every union branch now requires [${[...new Set(newSurf.rootReqView.branchRequired.flat())].sort().join(', ')}]`,
+            });
+          }
+        }
         diffPropMaps(oldSurf.props, newSurf.props, 'request', key, extra);
         diffDeepRequestTightenings(oldSurf.deep, newSurf.deep,
           oldSurf.props, newSurf.props, key, extra);
