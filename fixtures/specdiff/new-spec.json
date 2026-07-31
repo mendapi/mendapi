@@ -952,8 +952,17 @@
       "enum": [
        "soft"
       ]
+     },
+     "footer": {
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
      }
-    }
+    },
+    "required": [
+     "title"
+    ]
    }
   }
  }

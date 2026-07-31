@@ -801,6 +801,12 @@
        "soft",
        "loud"
       ]
+     },
+     "footer": {
+      "type": "string"
+     },
+     "legacy": {
+      "type": "string"
      }
     }
    },
@@ -834,6 +840,15 @@
        "soft",
        "loud"
       ]
+     },
+     "footer": {
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
+     },
+     "legacy": {
+      "type": "string"
      }
     }
    },

@@ -987,7 +987,43 @@ export function diffSpecs(oldSpec, newSpec) {
         for (const [prop, meta] of oldProps) {
           if (prop === disc) continue;
           const next = newProps.get(prop);
-          if (!next) continue; // prop removal inside a branch: separate concern
+          if (!next) {
+            // Prop removed INSIDE a branch while a sibling branch keeps it:
+            // the union merge still contains the prop, so the shallow pass is
+            // silent -- but senders pinned to this branch break. Report the
+            // topmost removed node only (parent gone = parent carries it),
+            // never on union-derived evidence, and dedup against the
+            // union-merged pass (prop gone from EVERY branch = merged map
+            // loses it and the shallow pass already fired, unsuffixed).
+            if (meta.viaUnion) continue;
+            const parent = parentOf(prop);
+            if (parent !== null && oldProps.has(parent) && !newProps.has(parent)) continue;
+            const dup = records.some((r) => r.kind === 'request-prop-removed'
+              && r.anchor === key && r.detail === prop);
+            if (dup) continue;
+            records.push({
+              kind: 'request-prop-removed', breaking: true, anchor: key,
+              detail: `${prop} (branch ${bkey})`,
+            });
+            continue;
+          }
+          // Optional -> required flip INSIDE a branch: the union merge marks
+          // a prop required only when required in EVERY branch (and flags it
+          // viaUnion, which the shallow flip guard skips), so a per-branch
+          // flip is invisible there -- but callers pinned to this branch who
+          // omit the field are now rejected. Explicit-to-explicit required
+          // evidence only, never via a nested union merge; dedup mirrors the
+          // enum pass (one change never fires twice).
+          if (!meta.required && next.required && !meta.viaUnion && !next.viaUnion) {
+            const dup = records.some((r) => r.kind === 'request-prop-became-required'
+              && r.anchor === key && r.detail === prop);
+            if (!dup) {
+              records.push({
+                kind: 'request-prop-became-required', breaking: true, anchor: key,
+                detail: `${prop} (branch ${bkey})`,
+              });
+            }
+          }
           if (!meta.enum || !next.enum || meta.viaUnion || next.viaUnion) continue;
           for (const v of meta.enum) {
             if (next.enum.includes(v)) continue;
