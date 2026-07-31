@@ -359,7 +359,14 @@ function extractOperations(spec) {
         if (schema) responseProps.set(status, flattenProps(spec, schema));
       }
 
-      ops.set(key, { params, requestProps, requestPropsDeep, responseProps, responseStatuses, hasBody: !!op.requestBody });
+      ops.set(key, {
+        params, requestProps, requestPropsDeep, responseProps, responseStatuses,
+        hasBody: !!op.requestBody,
+        // Explicit requestBody.required flag (spec default is false). Kept
+        // separately from hasBody so the optional -> required flip can be
+        // detected on declared-to-declared evidence only.
+        bodyRequired: !!(op.requestBody && op.requestBody.required === true),
+      });
     }
   }
   return ops;
@@ -708,6 +715,19 @@ export function diffSpecs(oldSpec, newSpec) {
     // POST /v2/invoicing/generate-next-invoice-number 7bbed782->fb6f126).
     if (oldOp.hasBody && !newOp.hasBody) {
       records.push({ kind: 'request-body-removed', breaking: true, anchor: key, detail: '' });
+    }
+
+    // Request body optional -> required flip: callers that legitimately sent
+    // no body (requestBody.required defaults to false) now get rejected =
+    // breaking for senders. Fired only on declared-to-declared evidence
+    // (body present on BOTH sides, explicit required:true only on NEW; body
+    // appearing at the same time is additive-shape churn already covered by
+    // the prop pass). The reverse direction (required -> optional) widens
+    // the contract and stays silent. oasdiff's request-body-became-required
+    // is the reference case (cloudflare browser-rendering endpoints
+    // b61f904f10c9 -> 7abe88500e55, Loop 473 real-gap adjudication).
+    if (oldOp.hasBody && newOp.hasBody && !oldOp.bodyRequired && newOp.bodyRequired) {
+      records.push({ kind: 'request-body-became-required', breaking: true, anchor: key, detail: '' });
     }
 
     diffPropMaps(oldOp.requestProps, newOp.requestProps, 'request', key, records);

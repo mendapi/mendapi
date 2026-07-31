@@ -1,533 +1,535 @@
 {
- "openapi": "3.0.1",
- "info": {
-  "title": "Demo Ingest API",
-  "version": "1.0.0"
- },
- "paths": {
-  "/v1/Operations": {
-   "get": {
-    "operationId": "ListOperations",
-    "parameters": [
-     {
-      "name": "PageSize",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "integer"
-      }
-     },
-     {
-      "name": "Realm",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "name": "IdOrName",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "oneOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "boolean"
-        }
-       ]
-      }
-     },
-     {
-      "name": "Env",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "name": "Filter",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "description": "freeform"
-      }
-     },
-     {
-      "name": "TraceId",
-      "in": "header",
-      "required": false,
-      "schema": {
-       "type": "string",
-       "minLength": 1,
-       "maxLength": 68
-      }
-     },
-     {
-      "name": "Cursor",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "name": "Label",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "string",
-       "maxLength": 40
-      }
-     },
-     {
-      "name": "Scope",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "string",
-       "minLength": 2
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "description": "OK",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "properties": {
-          "operations": {
-           "type": "array",
-           "items": {
-            "$ref": "#/components/schemas/LongRunningOperationResponse"
-           }
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Demo Ingest API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/Operations": {
+      "get": {
+        "operationId": "ListOperations",
+        "parameters": [
+          {
+            "name": "PageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "Realm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "IdOrName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          {
+            "name": "Env",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "freeform"
+            }
+          },
+          {
+            "name": "TraceId",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 68
+            }
+          },
+          {
+            "name": "Cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Label",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            }
+          },
+          {
+            "name": "Scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 2
+            }
           }
-         }
-        }
-       }
-      }
-     }
-    }
-   },
-   "post": {
-    "operationId": "CreateOperation",
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "type": "object",
-        "required": [
-         "datasetId"
         ],
-        "properties": {
-         "datasetId": {
-          "type": "string"
-         },
-         "mode": {
-          "type": "string",
-          "enum": [
-           "FULL",
-           "INCREMENTAL"
-          ]
-         },
-         "note": {
-          "type": "string",
-          "nullable": true
-         },
-         "refCode": {
-          "type": "string"
-         },
-         "channelKind": {
-          "type": "string"
-         },
-         "blobShape": {
-          "description": "freeform shape"
-         },
-         "slug": {
-          "type": "string",
-          "pattern": "^[a-z]+$"
-         },
-         "ledgerRef": {
-          "type": "string"
-         },
-         "noteCap": {
-          "type": "string",
-          "maxLength": 3000
-         },
-         "briefCap": {
-          "type": "string",
-          "maxLength": 40
-         },
-         "memoBlock": {
-          "type": "string"
-         },
-         "slotsCap": {
-          "type": "array",
-          "maxItems": 30,
-          "items": {
-           "type": "string"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "operations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LongRunningOperationResponse"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
-         },
-         "rosterCap": {
-          "type": "array",
-          "maxItems": 5,
-          "items": {
-           "type": "string"
-          }
-         },
-         "pileBlock": {
-          "type": "array",
-          "items": {
-           "type": "string"
-          }
-         }
         }
-       }
-      }
-     }
-    },
-    "responses": {
-     "201": {
-      "description": "Created",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/LongRunningOperationResponse"
-        }
-       }
-      }
-     },
-     "202": {
-      "description": "Accepted (async processing)"
-     },
-     "410": {
-      "description": "Gone"
-     },
-     "429": {
-      "description": "Too many requests"
-     }
-    }
-   }
-  },
-  "/v1/Legacy/Sync": {
-   "post": {
-    "operationId": "LegacySync",
-    "responses": {
-     "202": {
-      "description": "Accepted"
-     }
-    }
-   }
-  },
-  "/v1/Reports": {
-   "get": {
-    "operationId": "ListReports",
-    "responses": {
-     "200": {
-      "description": "ok",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "properties": {
-          "keptField": {
-           "type": "string"
+      },
+      "post": {
+        "operationId": "CreateOperation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "datasetId"
+                ],
+                "properties": {
+                  "datasetId": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "FULL",
+                      "INCREMENTAL"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "refCode": {
+                    "type": "string"
+                  },
+                  "channelKind": {
+                    "type": "string"
+                  },
+                  "blobShape": {
+                    "description": "freeform shape"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z]+$"
+                  },
+                  "ledgerRef": {
+                    "type": "string"
+                  },
+                  "noteCap": {
+                    "type": "string",
+                    "maxLength": 3000
+                  },
+                  "briefCap": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "memoBlock": {
+                    "type": "string"
+                  },
+                  "slotsCap": {
+                    "type": "array",
+                    "maxItems": 30,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "rosterCap": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "pileBlock": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
-          "movedField": {
-           "type": "number"
-          },
-          "doomedField": {
-           "type": "string"
-          },
-          "flavor": {
-           "type": "string",
-           "enum": [
-            "sweet",
-            "sour"
-           ]
-          }
-         },
-         "required": [
-          "keptField"
-         ]
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/v1/Archives": {
-   "get": {
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "properties": {
-          "archiveId": {
-           "type": "string"
-          },
-          "sealedAt": {
-           "type": "string"
-          },
-          "label": {
-           "type": "string"
-          }
-         },
-         "required": [
-          "archiveId",
-          "sealedAt"
-         ]
-        }
-       }
-      }
-     }
-    }
-   },
-   "post": {
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "type": "object",
-        "properties": {
-         "bucket": {
-          "type": "string"
-         }
+          "required": true
         },
-        "required": [
-         "bucket"
-        ]
-       }
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongRunningOperationResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted (async processing)"
+          },
+          "410": {
+            "description": "Gone"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        }
       }
-     }
     },
-    "responses": {
-     "200": {
-      "description": "ok"
-     }
-    }
-   }
-  },
-  "/v1/Vaults": {
-   "post": {
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "type": "object",
-        "properties": {
-         "hub": {
-          "type": "object",
-          "properties": {
-           "wallet": {
-            "type": "object",
-            "properties": {
-             "card": {
-              "type": "object",
-              "properties": {
-               "holder": {
+    "/v1/Legacy/Sync": {
+      "post": {
+        "operationId": "LegacySync",
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          }
+        }
+      }
+    },
+    "/v1/Reports": {
+      "get": {
+        "operationId": "ListReports",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keptField": {
+                      "type": "string"
+                    },
+                    "movedField": {
+                      "type": "number"
+                    },
+                    "doomedField": {
+                      "type": "string"
+                    },
+                    "flavor": {
+                      "type": "string",
+                      "enum": [
+                        "sweet",
+                        "sour"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "keptField"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/Archives": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "archiveId": {
+                      "type": "string"
+                    },
+                    "sealedAt": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "archiveId",
+                    "sealedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
                 "type": "object",
                 "properties": {
-                 "number": {
-                  "type": "string"
-                 },
-                 "full_name": {
-                  "type": "string"
-                 },
-                 "kind": {
-                  "type": "string",
-                  "enum": [
-                   "PASSPORT",
-                   "BUSINESS_REGISTRATION"
-                  ]
-                 },
-                 "issuer": {
-                  "type": "string"
-                 },
-                 "sigilRef": {
-                  "type": "string"
-                 },
-                 "crestUrl": {
-                  "type": "string",
-                  "pattern": "^https://"
-                 },
-                 "imprint": {
-                  "type": "string",
-                  "pattern": "^[A-Z]{2}$"
-                 }
+                  "bucket": {
+                    "type": "string"
+                  }
                 },
                 "required": [
-                 "number"
+                  "bucket"
                 ]
-               }
               }
-             }
             }
-           }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
           }
-         }
         }
-       }
       }
-     }
     },
-    "responses": {
-     "200": {
-      "description": "ok",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "properties": {
-          "hub": {
-           "type": "object",
-           "properties": {
-            "wallet": {
-             "type": "object",
-             "properties": {
-              "card": {
-               "type": "object",
-               "properties": {
-                "holder": {
-                 "type": "object",
-                 "properties": {
-                  "number": {
-                   "type": "string"
-                  },
-                  "full_name": {
-                   "type": "string"
-                  },
-                  "kind": {
-                   "type": "string",
-                   "enum": [
-                    "PASSPORT",
-                    "BUSINESS_REGISTRATION"
-                   ]
+    "/v1/Vaults": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hub": {
+                    "type": "object",
+                    "properties": {
+                      "wallet": {
+                        "type": "object",
+                        "properties": {
+                          "card": {
+                            "type": "object",
+                            "properties": {
+                              "holder": {
+                                "type": "object",
+                                "properties": {
+                                  "number": {
+                                    "type": "string"
+                                  },
+                                  "full_name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "PASSPORT",
+                                      "BUSINESS_REGISTRATION"
+                                    ]
+                                  },
+                                  "issuer": {
+                                    "type": "string"
+                                  },
+                                  "sigilRef": {
+                                    "type": "string"
+                                  },
+                                  "crestUrl": {
+                                    "type": "string",
+                                    "pattern": "^https://"
+                                  },
+                                  "imprint": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z]{2}$"
+                                  }
+                                },
+                                "required": [
+                                  "number"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
-                 },
-                 "required": [
-                  "number"
-                 ]
                 }
-               }
               }
-             }
             }
-           }
           }
-         }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hub": {
+                      "type": "object",
+                      "properties": {
+                        "wallet": {
+                          "type": "object",
+                          "properties": {
+                            "card": {
+                              "type": "object",
+                              "properties": {
+                                "holder": {
+                                  "type": "object",
+                                  "properties": {
+                                    "number": {
+                                      "type": "string"
+                                    },
+                                    "full_name": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "PASSPORT",
+                                        "BUSINESS_REGISTRATION"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "number"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
-       }
       }
-     }
-    }
-   }
-  },
-  "/v1/Snapshots": {
-   "post": {
-    "responses": {
-     "202": {
-      "description": "accepted"
-     }
     },
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
+    "/v1/Snapshots": {
+      "post": {
+        "responses": {
+          "202": {
+            "description": "accepted"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/Mirrors": {
+      "post": {
+        "responses": {
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LongRunningOperationResponse": {
         "type": "object",
         "properties": {
-         "label": {
-          "type": "string"
-         }
-        }
-       }
+          "operationId": {
+            "type": "string"
+          },
+          "estimatedCompletionTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED"
+            ]
+          },
+          "latitude": {
+            "type": "string"
+          },
+          "callbackUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "failureReason": {
+            "type": "string"
+          },
+          "retryCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "dialect": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "auditTag": {
+            "type": "string"
+          },
+          "synopsisCap": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "shelfCap": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "traceId",
+          "status"
+        ]
       }
-     }
     }
-   }
-  },
-  "/v1/Mirrors": {
-   "post": {
-    "responses": {
-     "201": {
-      "description": "created"
-     }
-    }
-   }
   }
- },
- "components": {
-  "schemas": {
-   "LongRunningOperationResponse": {
-    "type": "object",
-    "properties": {
-     "operationId": {
-      "type": "string"
-     },
-     "estimatedCompletionTime": {
-      "type": "string",
-      "format": "date-time"
-     },
-     "status": {
-      "type": "string",
-      "enum": [
-       "QUEUED",
-       "RUNNING",
-       "COMPLETED",
-       "FAILED"
-      ]
-     },
-     "latitude": {
-      "type": "string"
-     },
-     "callbackUrl": {
-      "type": "string",
-      "format": "uri"
-     },
-     "failureReason": {
-      "type": "string"
-     },
-     "retryCount": {
-      "type": "integer",
-      "nullable": true
-     },
-     "traceId": {
-      "type": "string"
-     },
-     "dialect": {
-      "type": "string"
-     },
-     "label": {
-      "type": "string"
-     },
-     "auditTag": {
-      "type": "string"
-     },
-     "synopsisCap": {
-      "type": "string",
-      "maxLength": 500
-     },
-     "shelfCap": {
-      "type": "array",
-      "maxItems": 30,
-      "items": {
-       "type": "string"
-      }
-     }
-    },
-    "required": [
-     "traceId",
-     "status"
-    ]
-   }
-  }
- }
 }
