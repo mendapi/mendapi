@@ -3,6 +3,23 @@
 > **Dependabot, but for every API you depend on.**
 > We watch your upstream API providers for breaking changes, scan your codebase for impact, and open the fix PR before your integration breaks.
 
+## 30 seconds to your first result
+
+```bash
+# In any repo — zero config, zero npm dependencies, nothing leaves your machine
+npx mendapi scan
+```
+
+You get every upstream breaking change that actually hits your code — file, line, and symbol — scored for confidence. Then `npx mendapi fix` drafts the migration as a reviewable diff.
+
+Using an AI coding agent? One line plugs mendapi into Claude Code as an MCP server (Cursor and every other MCP client work too — [details below](#use-it-from-your-ai-coding-agent-mcp)):
+
+```bash
+claude mcp add mendapi -- npx mendapi mcp
+```
+
+Requires Node.js 22+. Everything runs locally: the scanner, fixer, and review CLIs contain no network code at all.
+
 ## Security model (read this first)
 
 This tool is designed for teams that cannot let source code leave their machines. The security model is the product, not a FAQ entry:
@@ -86,7 +103,7 @@ Dogfooding across three production repos: the current pipeline reports **zero fa
 
 ## Status
 
-Pre-release. Not yet published; API and name subject to change.
+Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.0). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
 
 ## License
 
