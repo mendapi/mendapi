@@ -3779,29 +3779,26 @@ function runMigration(migrationName, repoPath, opts) {
   // the operator re-verified the rules against the current upstream.
   const stale = checkPackFreshness(migrationName, MIGRATIONS, opts.db || undefined);
   if (stale && !opts.ackStale) {
-    if (opts.json) {
-      // Structured refusal on stdout so agents (including the MCP server,
-      // which returns child stdout verbatim) never have to parse the human
-      // stderr prose. Same envelope shape as a fix report; status field is
-      // the machine signal, exit code 3 stays the process-level contract.
-      const refusal = {
-        tool: 'mendapi-fixer/0.1',
-        schema_version: 1,
-        migration: migrationName,
-        provider: migration.provider,
-        mode: opts.apply ? 'apply' : 'dry-run',
-        status: 'refused-stale',
-        pack_freshness: {
-          status: 'needs-revalidation',
-          baseline: stale.baseline,
-          newer_changes: stale.newer_changes,
-        },
-        remedy: 'Audit with `mendapi revalidate`, then rerun with --ack-stale, or stamp revalidatedThrough on the pack.',
-      };
-      if (stale.suggested_revalidated_through) {
-        refusal.pack_freshness.suggested_revalidated_through = stale.suggested_revalidated_through;
-      }
-      console.log(JSON.stringify(refusal, null, 2));
+    // Structured refusal so agents (including the MCP server, which returns
+    // child stdout verbatim) never have to parse the human stderr prose.
+    // Same envelope shape as a fix report; status field is the machine
+    // signal, exit code 3 stays the process-level contract.
+    const refusal = {
+      tool: 'mendapi-fixer/0.1',
+      schema_version: 1,
+      migration: migrationName,
+      provider: migration.provider,
+      mode: opts.apply ? 'apply' : 'dry-run',
+      status: 'refused-stale',
+      pack_freshness: {
+        status: 'needs-revalidation',
+        baseline: stale.baseline,
+        newer_changes: stale.newer_changes,
+      },
+      remedy: 'Audit with `mendapi revalidate`, then rerun with --ack-stale, or stamp revalidatedThrough on the pack.',
+    };
+    if (stale.suggested_revalidated_through) {
+      refusal.pack_freshness.suggested_revalidated_through = stale.suggested_revalidated_through;
     }
     console.error(`Refusing to run migration '${migrationName}': pack needs revalidation.`);
     console.error(`Newer upstream changes on the same API surface since baseline ${stale.baseline}:`);
@@ -3810,6 +3807,16 @@ function runMigration(migrationName, repoPath, opts) {
     if (stale.suggested_revalidated_through) {
       console.error(`Once re-verified, stamp revalidatedThrough: '${stale.suggested_revalidated_through}' on the pack to acknowledge the listed changes permanently.`);
     }
+    if (opts.pipeline) {
+      // --from-report pipeline: one stale pack must not abort the remaining
+      // migrations or swallow the aggregate document. Record the refusal in
+      // the run (structured entry in the JSON aggregate) and let main() exit
+      // 3 after every applicable migration has run.
+      if (opts.collect) opts.collect.push(refusal);
+      if (opts.refused) opts.refused.push(migrationName);
+      return 0;
+    }
+    if (opts.json) console.log(JSON.stringify(refusal, null, 2));
     process.exit(3);
   }
   const outDir = opts.outDir || join(ROOT, '..', 'loop', 'evidence', `fix-${migrationName}`);
@@ -3942,6 +3949,8 @@ function main() {
       process.exit(1);
     }
     let totalChanged = 0;
+    opts.pipeline = true;
+    opts.refused = [];
     if (opts.json) opts.collect = [];
     for (const m of applicable) {
       logOut('');
@@ -3949,13 +3958,22 @@ function main() {
     }
     if (opts.json) {
       // One stable JSON document for the whole pipeline run (never N concatenated docs).
-      console.log(JSON.stringify({
+      const aggregate = {
         tool: 'mendapi-fixer/0.1',
         schema_version: 1,
         mode: opts.apply ? 'apply' : 'dry-run',
         migrations: opts.collect,
         total_files_changed: totalChanged,
-      }, null, 2));
+      };
+      if (opts.refused.length) aggregate.refused_stale = opts.refused;
+      console.log(JSON.stringify(aggregate, null, 2));
+    }
+    if (opts.refused.length) {
+      // Stale-pack refusals surfaced mid-pipeline: every other applicable
+      // migration still ran (reports above/in the aggregate), but the run as
+      // a whole is not clean — keep the exit-3 staleness contract.
+      logOut(`Refused stale pack(s): ${opts.refused.join(', ')} — see refusal details above.`);
+      process.exit(3);
     }
     if (totalChanged === 0) {
       logOut('No files needed changes (codebase may already be on the new API).');
