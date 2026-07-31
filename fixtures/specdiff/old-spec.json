@@ -91,6 +91,13 @@
        "type": "string",
        "minLength": 2
       }
+     },
+     {
+      "in": "query",
+      "name": "Query",
+      "schema": {
+       "type": "string"
+      }
      }
     ],
     "responses": {

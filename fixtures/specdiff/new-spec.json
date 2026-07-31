@@ -104,6 +104,16 @@
        "type": "string",
        "minLength": 1
       }
+     },
+     {
+      "in": "query",
+      "name": "Query",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
      }
     ],
     "responses": {

@@ -43,11 +43,17 @@
 //                                      branching on it stop matching. 4xx/5xx
 //                                      churn is deliberately silent.
 //   param-type-narrowed      breaking   a parameter's accepted JSON type set
-//                                      shrank (e.g. oneOf[string,boolean] ->
-//                                      string): senders of the dropped type
-//                                      now get rejected. Widening (types
-//                                      added) and unknown/unresolvable sides
-//                                      are deliberately silent.
+//                                       shrank (e.g. oneOf[string,boolean] ->
+//                                       string): senders of the dropped type
+//                                       now get rejected. Widening (types
+//                                       added) and unknown/unresolvable sides
+//                                       are deliberately silent.
+//   param-type-changed       breaking   a parameter's accepted JSON type set
+//                                       was replaced wholesale (disjoint old
+//                                       vs new, e.g. string -> array): every
+//                                       existing caller's value now rejected.
+//                                       Overlapping sets go to the narrowing/
+//                                       widening lanes; unknown sides silent.
 //   request-prop-pattern-added  breaking   a pattern constraint appeared on a
 //                                      request prop that had none: previously
 //                                      valid values now get rejected. Pattern
@@ -760,6 +766,21 @@ export function diffSpecs(oldSpec, newSpec) {
             records.push({
               kind: 'param-type-narrowed', breaking: true, anchor: key,
               detail: `${pkey}: -${dropped.sort().join(',-')}`,
+            });
+          } else if (dropped.length && dropped.length === meta.types.size) {
+            // Parameter type REPLACED wholesale: the old and new type sets
+            // are disjoint (every previously accepted type is gone), so every
+            // value existing callers send gets rejected -> breaking. This is
+            // distinct from narrowing (partial removal, handled above) and
+            // deliberately excluded by its `dropped < size` guard; without
+            // this branch a full replacement is invisible. Overlapping sets
+            // stay in the narrowing/widening lanes; unknown sides (null)
+            // never reach here. oasdiff's request-parameter-type-changed is
+            // the reference case (cloudflare cloudforce-one events/indicators
+            // `search` query param: string -> array<object>). Loop 492.
+            records.push({
+              kind: 'param-type-changed', breaking: true, anchor: key,
+              detail: `${pkey}: ${[...meta.types].sort().join('|')} -> ${[...next.types].sort().join('|')}`,
             });
           }
         }
