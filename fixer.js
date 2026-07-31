@@ -3783,6 +3783,9 @@ function runMigration(migrationName, repoPath, opts) {
     console.error(`Newer upstream changes on the same API surface since baseline ${stale.baseline}:`);
     for (const n of stale.newer_changes) console.error(`  #${n.id} (${n.published})${n.anchor ? ` ${n.anchor}` : ''}: ${n.title}`);
     console.error('Re-verify the pack rules (node app/revalidate.js), then rerun with --ack-stale to proceed.');
+    if (stale.suggested_revalidated_through) {
+      console.error(`Once re-verified, stamp revalidatedThrough: '${stale.suggested_revalidated_through}' on the pack to acknowledge the listed changes permanently.`);
+    }
     process.exit(3);
   }
   const outDir = opts.outDir || join(ROOT, '..', 'loop', 'evidence', `fix-${migrationName}`);

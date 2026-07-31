@@ -147,7 +147,7 @@ export function assessPacks(migrations, dbPath = DEFAULT_DB_PATH) {
       }
       newer.push({ id: ch.id, title: ch.title.slice(0, 120), published: chronoKey(ch), anchor: anchor || null });
     }
-    packs.push({
+    const entry = {
       pack: name,
       provider: mig.provider,
       status: newer.length ? 'needs-revalidation' : 'fresh',
@@ -155,7 +155,17 @@ export function assessPacks(migrations, dbPath = DEFAULT_DB_PATH) {
       covers,
       surfaces: coveredSurfaces,
       newer_changes: newer,
-    });
+    };
+    if (newer.length) {
+      // Re-verification closure hint: after the operator re-checks the pack
+      // rules against the current upstream, stamping `revalidatedThrough`
+      // with this exact date (the newest flagged change's publish date)
+      // acknowledges every listed change and flips the pack back to fresh.
+      // Any earlier date leaves the flag raised; any later date would
+      // silently acknowledge changes the operator never saw listed.
+      entry.suggested_revalidated_through = newer.map((n) => n.published).sort().pop();
+    }
+    packs.push(entry);
   }
   return { generated_at: new Date().toISOString(), db: dbPath, packs };
 }
@@ -201,6 +211,9 @@ async function main() {
         console.log(`   newer change #${n.id} (${n.published})${n.anchor ? ` ${n.anchor}` : ''}: ${n.title}`);
       }
       console.log('   -> re-verify the pack rules against the current upstream surface, then update covers/rules.');
+      if (p.suggested_revalidated_through) {
+        console.log(`   -> once re-verified, stamp revalidatedThrough: '${p.suggested_revalidated_through}' on the pack to acknowledge the listed changes.`);
+      }
       console.log('');
     }
     if (!stale.length) console.log('All covering packs are fresh against the current change database.');
