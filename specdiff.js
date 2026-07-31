@@ -420,6 +420,16 @@ function extractOperations(spec) {
         if (schema) responseProps.set(status, flattenProps(spec, schema));
       }
 
+      // Request body media types (content map keys). requestBody may itself
+      // be a $ref (cloudflare uses ~50 of those), so deref before reading.
+      // Used by the media-type-removed pass only; empty set = no evidence
+      // (fail-closed, nothing fires).
+      const rbody = deref(spec, op.requestBody, new Set());
+      const bodyMediaTypes = new Set(
+        rbody && rbody.content && typeof rbody.content === 'object'
+          ? Object.keys(rbody.content) : [],
+      );
+
       ops.set(key, {
         params, requestProps, requestPropsDeep, responseProps, responseStatuses,
         hasBody: !!op.requestBody,
@@ -427,6 +437,7 @@ function extractOperations(spec) {
         // separately from hasBody so the optional -> required flip can be
         // detected on declared-to-declared evidence only.
         bodyRequired: !!(op.requestBody && op.requestBody.required === true),
+        bodyMediaTypes,
       });
     }
   }
@@ -859,6 +870,24 @@ export function diffSpecs(oldSpec, newSpec) {
     // b61f904f10c9 -> 7abe88500e55, Loop 473 real-gap adjudication).
     if (oldOp.hasBody && newOp.hasBody && !oldOp.bodyRequired && newOp.bodyRequired) {
       records.push({ kind: 'request-body-became-required', breaking: true, anchor: key, detail: '' });
+    }
+
+    // Request body media type removed: callers sending that Content-Type get
+    // rejected (415 or parse failure) = breaking for senders. Fired only on
+    // declared-to-declared evidence (both sides have at least one media type,
+    // the removed one was explicitly declared in OLD and is absent in NEW).
+    // Media type ADDED is additive and stays silent; body removed wholesale
+    // is already covered by request-body-removed (empty NEW set is excluded
+    // here so one change never fires two kinds). oasdiff's
+    // request-body-media-type-removed is the reference case (cloudflare
+    // POST /accounts/{account_id}/ai/tomarkdown b61f904f10c9 -> 7abe88500e55,
+    // application/octet-stream replaced by multipart/form-data).
+    if (oldOp.bodyMediaTypes.size > 0 && newOp.bodyMediaTypes.size > 0) {
+      for (const mt of oldOp.bodyMediaTypes) {
+        if (!newOp.bodyMediaTypes.has(mt)) {
+          records.push({ kind: 'request-media-type-removed', breaking: true, anchor: key, detail: mt });
+        }
+      }
     }
 
     diffPropMaps(oldOp.requestProps, newOp.requestProps, 'request', key, records);

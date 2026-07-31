@@ -1,770 +1,804 @@
 {
-  "openapi": "3.0.1",
-  "info": {
-    "title": "Demo Ingest API",
-    "version": "2.0.0"
-  },
-  "paths": {
-    "/v1/Operations": {
-      "get": {
-        "operationId": "ListOperations",
-        "parameters": [
-          {
-            "name": "PageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "Realm",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Region",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "IdOrName",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Env",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^env_"
-                }
-              ]
-            }
-          },
-          {
-            "name": "Filter",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "TraceId",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 4,
-              "maxLength": 36
-            }
-          },
-          {
-            "name": "Cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 10000,
-              "pattern": "^[\\S\\s]*$"
-            }
-          },
-          {
-            "name": "Label",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "pattern": "^lbl_[a-z0-9]+$"
-            }
-          },
-          {
-            "name": "Scope",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "operations": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/LongRunningOperationResponse"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "CreateOperation",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "datasetId",
-                  "warehouseId",
-                  "ledgerRef"
-                ],
-                "properties": {
-                  "datasetId": {
-                    "type": "string"
-                  },
-                  "warehouseId": {
-                    "type": "string"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "INCREMENTAL",
-                      "SNAPSHOT"
-                    ]
-                  },
-                  "note": {
-                    "type": "string"
-                  },
-                  "retention": {
-                    "type": "object",
-                    "required": [
-                      "days",
-                      "policy"
-                    ],
-                    "properties": {
-                      "days": {
-                        "type": "integer"
-                      },
-                      "policy": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "refCode": {
-                    "type": "string",
-                    "pattern": "^[0-9a-fA-F]{40}$"
-                  },
-                  "channelKind": {
-                    "type": "string",
-                    "enum": [
-                      "DIRECT",
-                      "BATCH"
-                    ]
-                  },
-                  "blobShape": {
-                    "type": "string",
-                    "enum": [
-                      "WIDE",
-                      "NARROW"
-                    ]
-                  },
-                  "slug": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9-]+$"
-                  },
-                  "ledgerRef": {
-                    "type": "string"
-                  },
-                  "noteCap": {
-                    "type": "string",
-                    "maxLength": 127
-                  },
-                  "briefCap": {
-                    "type": "string",
-                    "maxLength": 80
-                  },
-                  "memoBlock": {
-                    "type": "string",
-                    "maxLength": 127
-                  },
-                  "slotsCap": {
-                    "type": "array",
-                    "maxItems": 10,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "rosterCap": {
-                    "type": "array",
-                    "maxItems": 20,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "pileBlock": {
-                    "type": "array",
-                    "maxItems": 10,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "binCap": {
-                    "type": "array",
-                    "minItems": 3,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "actionsList": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "zeroList": {
-                    "type": "array",
-                    "minItems": 0,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "slackList": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "mysteryList": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "required": true
+ "openapi": "3.0.1",
+ "info": {
+  "title": "Demo Ingest API",
+  "version": "2.0.0"
+ },
+ "paths": {
+  "/v1/Operations": {
+   "get": {
+    "operationId": "ListOperations",
+    "parameters": [
+     {
+      "name": "PageSize",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "name": "Realm",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Region",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "IdOrName",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Env",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
         },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LongRunningOperationResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests"
-          }
+        {
+         "type": "string",
+         "pattern": "^env_"
         }
+       ]
       }
-    },
-    "/v1/ControlPlane/Operations/{OperationId}": {
-      "get": {
-        "operationId": "GetControlPlaneOperationStatus",
-        "parameters": [
-          {
-            "name": "OperationId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+     },
+     {
+      "name": "Filter",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "TraceId",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "minLength": 4,
+       "maxLength": 36
+      }
+     },
+     {
+      "name": "Cursor",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 10000,
+       "pattern": "^[\\S\\s]*$"
+      }
+     },
+     {
+      "name": "Label",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "maxLength": 64,
+       "pattern": "^lbl_[a-z0-9]+$"
+      }
+     },
+     {
+      "name": "Scope",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "minLength": 1
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "operations": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/LongRunningOperationResponse"
+           }
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
+         }
         }
+       }
       }
-    },
-    "/v1/Reports": {
-      "get": {
-        "operationId": "ListReports",
-        "responses": {
-          "200": {
-            "description": "ok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "keptField": {
-                          "type": "string"
-                        },
-                        "summaryOnly": {
-                          "type": "boolean"
-                        },
-                        "flavor": {
-                          "type": "string",
-                          "enum": [
-                            "sweet",
-                            "sour"
-                          ]
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "keptField": {
-                          "type": "string"
-                        },
-                        "movedField": {
-                          "type": "number"
-                        },
-                        "flavor": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "Filters",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "type": "string",
-                    "enum": [
-                      "id",
-                      "created_at",
-                      "batch_id"
-                    ]
-                  },
-                  "operator": {
-                    "type": "string",
-                    "enum": [
-                      "eq",
-                      "neq"
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          {
-            "name": "ResourceTypes",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "custom-ruleset",
-                  "gateway-policy"
-                ]
-              }
-            }
-          },
-          {
-            "name": "Mode",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "daily",
-                "weekly",
-                "monthly"
-              ]
-            }
-          },
-          {
-            "name": "UnionKey",
-            "in": "query",
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "a",
-                    "b"
-                  ]
-                },
-                {
-                  "type": "number"
-                }
-              ]
-            }
-          },
-          {
-            "name": "Freeform",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "x",
-                "y"
-              ]
-            }
-          },
-          {
-            "name": "Loose",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "p",
-                "q"
-              ]
-            }
-          },
-          {
-            "name": "Widened",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      }
-    },
-    "/v1/Archives": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "allOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "archiveId": {
-                          "type": "string"
-                        },
-                        "sealedAt": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "label": {
-                          "type": "string"
-                        },
-                        "checksum": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  ],
-                  "required": [
-                    "archiveId",
-                    "sealedAt"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "allOf": [
-                  {
-                    "properties": {
-                      "bucket": {
-                        "type": "string"
-                      },
-                      "region": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                ],
-                "required": [
-                  "bucket",
-                  "region"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "ok"
-          }
-        }
-      }
-    },
-    "/v1/Vaults": {
-      "post": {
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "hub": {
-                    "type": "object",
-                    "properties": {
-                      "wallet": {
-                        "type": "object",
-                        "properties": {
-                          "card": {
-                            "type": "object",
-                            "properties": {
-                              "holder": {
-                                "type": "object",
-                                "properties": {
-                                  "number": {
-                                    "type": "string"
-                                  },
-                                  "cvv": {
-                                    "type": "string"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "enum": [
-                                      "PASSPORT"
-                                    ]
-                                  },
-                                  "issuer": {
-                                    "type": "string"
-                                  },
-                                  "sigilRef": {
-                                    "type": "string",
-                                    "pattern": "^[0-9a-f]{8}$"
-                                  },
-                                  "crestUrl": {
-                                    "type": "string",
-                                    "pattern": "^https://cdn\\."
-                                  },
-                                  "imprint": {
-                                    "type": "string",
-                                    "pattern": "^[A-Z]{2}$"
-                                  }
-                                },
-                                "required": [
-                                  "number",
-                                  "cvv",
-                                  "issuer"
-                                ]
-                              }
-                            }
-                          },
-                          "escrow": {
-                            "type": "object",
-                            "properties": {
-                              "rules": {
-                                "type": "object",
-                                "properties": {
-                                  "limit": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "limit"
-                                ]
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "ok",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "hub": {
-                      "type": "object",
-                      "properties": {
-                        "wallet": {
-                          "type": "object",
-                          "properties": {
-                            "card": {
-                              "type": "object",
-                              "properties": {
-                                "holder": {
-                                  "type": "object",
-                                  "properties": {
-                                    "number": {
-                                      "type": "string"
-                                    },
-                                    "cvv": {
-                                      "type": "string"
-                                    },
-                                    "kind": {
-                                      "type": "string",
-                                      "enum": [
-                                        "PASSPORT"
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "number",
-                                    "cvv"
-                                  ]
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/Snapshots": {
-      "post": {
-        "responses": {
-          "202": {
-            "description": "accepted"
-          }
-        }
-      }
-    },
-    "/v1/Mirrors": {
-      "post": {
-        "responses": {
-          "201": {
-            "description": "created"
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "target": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        }
-      }
+     }
     }
+   },
+   "post": {
+    "operationId": "CreateOperation",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "datasetId",
+         "warehouseId",
+         "ledgerRef"
+        ],
+        "properties": {
+         "datasetId": {
+          "type": "string"
+         },
+         "warehouseId": {
+          "type": "string"
+         },
+         "mode": {
+          "type": "string",
+          "enum": [
+           "INCREMENTAL",
+           "SNAPSHOT"
+          ]
+         },
+         "note": {
+          "type": "string"
+         },
+         "retention": {
+          "type": "object",
+          "required": [
+           "days",
+           "policy"
+          ],
+          "properties": {
+           "days": {
+            "type": "integer"
+           },
+           "policy": {
+            "type": "string"
+           }
+          }
+         },
+         "refCode": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{40}$"
+         },
+         "channelKind": {
+          "type": "string",
+          "enum": [
+           "DIRECT",
+           "BATCH"
+          ]
+         },
+         "blobShape": {
+          "type": "string",
+          "enum": [
+           "WIDE",
+           "NARROW"
+          ]
+         },
+         "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+         },
+         "ledgerRef": {
+          "type": "string"
+         },
+         "noteCap": {
+          "type": "string",
+          "maxLength": 127
+         },
+         "briefCap": {
+          "type": "string",
+          "maxLength": 80
+         },
+         "memoBlock": {
+          "type": "string",
+          "maxLength": 127
+         },
+         "slotsCap": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+           "type": "string"
+          }
+         },
+         "rosterCap": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+           "type": "string"
+          }
+         },
+         "pileBlock": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+           "type": "string"
+          }
+         },
+         "binCap": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+           "type": "string"
+          }
+         },
+         "actionsList": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+           "type": "string"
+          }
+         },
+         "zeroList": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+           "type": "string"
+          }
+         },
+         "slackList": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+           "type": "string"
+          }
+         },
+         "mysteryList": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LongRunningOperationResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Too many requests"
+     }
+    }
+   }
   },
-  "components": {
-    "schemas": {
-      "LongRunningOperationResponse": {
+  "/v1/ControlPlane/Operations/{OperationId}": {
+   "get": {
+    "operationId": "GetControlPlaneOperationStatus",
+    "parameters": [
+     {
+      "name": "OperationId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    }
+   }
+  },
+  "/v1/Reports": {
+   "get": {
+    "operationId": "ListReports",
+    "responses": {
+     "200": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "oneOf": [
+          {
+           "type": "object",
+           "properties": {
+            "keptField": {
+             "type": "string"
+            },
+            "summaryOnly": {
+             "type": "boolean"
+            },
+            "flavor": {
+             "type": "string",
+             "enum": [
+              "sweet",
+              "sour"
+             ]
+            }
+           }
+          },
+          {
+           "type": "object",
+           "properties": {
+            "keptField": {
+             "type": "string"
+            },
+            "movedField": {
+             "type": "number"
+            },
+            "flavor": {
+             "type": "string"
+            }
+           }
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "Filters",
+      "in": "query",
+      "schema": {
+       "type": "array",
+       "items": {
         "type": "object",
         "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "QUEUED",
-              "RUNNING",
-              "COMPLETED",
-              "FAILED",
-              "CANCELLED"
-            ]
-          },
-          "latitude": {
-            "type": "number"
-          },
-          "callbackUrl": {
-            "type": "string"
-          },
-          "failureReason": {
-            "type": "string",
-            "nullable": true
-          },
-          "retryCount": {
-            "type": "integer",
-            "nullable": true
-          },
-          "traceId": {
-            "type": "string"
-          },
-          "dialect": {
-            "type": "string",
-            "enum": [
-              "V2",
-              "V3"
-            ]
-          },
-          "label": {
-            "type": "string",
-            "pattern": "^[A-Z]+$"
-          },
-          "auditTag": {
-            "type": "string"
-          },
-          "synopsisCap": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "shelfCap": {
-            "type": "array",
-            "maxItems": 10,
-            "items": {
-              "type": "string"
-            },
-            "minItems": 1
-          }
-        },
-        "required": [
-          "status",
-          "auditTag"
-        ]
+         "key": {
+          "type": "string",
+          "enum": [
+           "id",
+           "created_at",
+           "batch_id"
+          ]
+         },
+         "operator": {
+          "type": "string",
+          "enum": [
+           "eq",
+           "neq"
+          ]
+         }
+        }
+       }
       }
+     },
+     {
+      "name": "ResourceTypes",
+      "in": "query",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "custom-ruleset",
+         "gateway-policy"
+        ]
+       }
+      }
+     },
+     {
+      "name": "Mode",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "daily",
+        "weekly",
+        "monthly"
+       ]
+      }
+     },
+     {
+      "name": "UnionKey",
+      "in": "query",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "enum": [
+          "a",
+          "b"
+         ]
+        },
+        {
+         "type": "number"
+        }
+       ]
+      }
+     },
+     {
+      "name": "Freeform",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "x",
+        "y"
+       ]
+      }
+     },
+     {
+      "name": "Loose",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "p",
+        "q"
+       ]
+      }
+     },
+     {
+      "name": "Widened",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/v1/Archives": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "allOf": [
+          {
+           "type": "object",
+           "properties": {
+            "archiveId": {
+             "type": "string"
+            },
+            "sealedAt": {
+             "type": "string"
+            }
+           }
+          },
+          {
+           "properties": {
+            "label": {
+             "type": "string"
+            },
+            "checksum": {
+             "type": "string"
+            }
+           }
+          }
+         ],
+         "required": [
+          "archiveId",
+          "sealedAt"
+         ]
+        }
+       }
+      }
+     }
     }
+   },
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "allOf": [
+         {
+          "properties": {
+           "bucket": {
+            "type": "string"
+           },
+           "region": {
+            "type": "string"
+           }
+          }
+         }
+        ],
+        "required": [
+         "bucket",
+         "region"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/Vaults": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "hub": {
+          "type": "object",
+          "properties": {
+           "wallet": {
+            "type": "object",
+            "properties": {
+             "card": {
+              "type": "object",
+              "properties": {
+               "holder": {
+                "type": "object",
+                "properties": {
+                 "number": {
+                  "type": "string"
+                 },
+                 "cvv": {
+                  "type": "string"
+                 },
+                 "kind": {
+                  "type": "string",
+                  "enum": [
+                   "PASSPORT"
+                  ]
+                 },
+                 "issuer": {
+                  "type": "string"
+                 },
+                 "sigilRef": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}$"
+                 },
+                 "crestUrl": {
+                  "type": "string",
+                  "pattern": "^https://cdn\\."
+                 },
+                 "imprint": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                 }
+                },
+                "required": [
+                 "number",
+                 "cvv",
+                 "issuer"
+                ]
+               }
+              }
+             },
+             "escrow": {
+              "type": "object",
+              "properties": {
+               "rules": {
+                "type": "object",
+                "properties": {
+                 "limit": {
+                  "type": "integer"
+                 }
+                },
+                "required": [
+                 "limit"
+                ]
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "hub": {
+           "type": "object",
+           "properties": {
+            "wallet": {
+             "type": "object",
+             "properties": {
+              "card": {
+               "type": "object",
+               "properties": {
+                "holder": {
+                 "type": "object",
+                 "properties": {
+                  "number": {
+                   "type": "string"
+                  },
+                  "cvv": {
+                   "type": "string"
+                  },
+                  "kind": {
+                   "type": "string",
+                   "enum": [
+                    "PASSPORT"
+                   ]
+                  }
+                 },
+                 "required": [
+                  "number",
+                  "cvv"
+                 ]
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/Snapshots": {
+   "post": {
+    "responses": {
+     "202": {
+      "description": "accepted"
+     }
+    }
+   }
+  },
+  "/v1/Mirrors": {
+   "post": {
+    "responses": {
+     "201": {
+      "description": "created"
+     }
+    },
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "target": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     },
+     "required": true
+    }
+   }
+  },
+  "/v1/Transcodes": {
+   "post": {
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "data": {
+          "type": "string"
+         }
+        }
+       }
+      },
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "data": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
   }
+ },
+ "components": {
+  "schemas": {
+   "LongRunningOperationResponse": {
+    "type": "object",
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "QUEUED",
+       "RUNNING",
+       "COMPLETED",
+       "FAILED",
+       "CANCELLED"
+      ]
+     },
+     "latitude": {
+      "type": "number"
+     },
+     "callbackUrl": {
+      "type": "string"
+     },
+     "failureReason": {
+      "type": "string",
+      "nullable": true
+     },
+     "retryCount": {
+      "type": "integer",
+      "nullable": true
+     },
+     "traceId": {
+      "type": "string"
+     },
+     "dialect": {
+      "type": "string",
+      "enum": [
+       "V2",
+       "V3"
+      ]
+     },
+     "label": {
+      "type": "string",
+      "pattern": "^[A-Z]+$"
+     },
+     "auditTag": {
+      "type": "string"
+     },
+     "synopsisCap": {
+      "type": "string",
+      "maxLength": 100
+     },
+     "shelfCap": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "type": "string"
+      },
+      "minItems": 1
+     }
+    },
+    "required": [
+     "status",
+     "auditTag"
+    ]
+   }
+  }
+ }
 }
