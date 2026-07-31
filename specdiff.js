@@ -426,6 +426,38 @@ function extractOperations(spec) {
         if (schema) responseProps.set(status, flattenProps(spec, schema));
       }
 
+      // Discriminated request unions (oneOf + discriminator.mapping): the
+      // discriminator pins each caller to exactly ONE branch, so per-branch
+      // schemas are exact evidence -- unlike plain oneOf/anyOf unions, where
+      // a value rejected by one branch may satisfy a sibling and the merge
+      // must stay conservative. Branches are identity-matched by mapping key
+      // (not position), and each branch's props are flattened independently
+      // so the diff layer can catch tightenings hidden by the union merge
+      // (e.g. an enum value removed from one branch while a sibling keeps
+      // it: merged enum still contains the value = silent, but senders of
+      // that branch are broken). Fail-closed: no discriminator, no mapping,
+      // or unresolvable branch $ref = no branch evidence (null). oasdiff's
+      // request-property-enum-value-removed inside a discriminated branch is
+      // the reference case (cloudflare POST /accounts/{account_id}/
+      // abuse-reports/{report_param} GeneralReport owner_notification enum
+      // value `none` removed while CSAM/NCSEI branches keep it). Loop 494.
+      const reqRoot = reqSchema ? deref(spec, reqSchema, new Set()) : null;
+      let requestBranches = null;
+      if (reqRoot && Array.isArray(reqRoot.oneOf) && reqRoot.discriminator
+          && typeof reqRoot.discriminator.propertyName === 'string'
+          && reqRoot.discriminator.mapping && typeof reqRoot.discriminator.mapping === 'object') {
+        const branches = new Map();
+        for (const [bkey, ref] of Object.entries(reqRoot.discriminator.mapping)) {
+          if (typeof ref !== 'string') continue;
+          const target = resolveRef(spec, ref, new Set());
+          if (!target) continue;
+          branches.set(bkey, flattenProps(spec, target, '', 0, new Set(), new Map()));
+        }
+        if (branches.size > 0) {
+          requestBranches = { disc: reqRoot.discriminator.propertyName, branches };
+        }
+      }
+
       // Request body media types (content map keys). requestBody may itself
       // be a $ref (cloudflare uses ~50 of those), so deref before reading.
       // Used by the media-type-removed pass only; empty set = no evidence
@@ -444,6 +476,7 @@ function extractOperations(spec) {
         // detected on declared-to-declared evidence only.
         bodyRequired: !!(op.requestBody && op.requestBody.required === true),
         bodyMediaTypes,
+        requestBranches,
       });
     }
   }
@@ -928,6 +961,47 @@ export function diffSpecs(oldSpec, newSpec) {
     diffPropMaps(oldOp.requestProps, newOp.requestProps, 'request', key, records);
     diffDeepRequestTightenings(oldOp.requestPropsDeep, newOp.requestPropsDeep,
       oldOp.requestProps, newOp.requestProps, key, records);
+
+    // Discriminated request branch tightenings: enum value removed INSIDE a
+    // discriminator-mapped branch. The union-merged shallow pass takes the
+    // UNION of enum values across branches (correct for plain unions), so a
+    // value removed from one branch while a sibling keeps it never surfaces
+    // there -- but with a discriminator the caller is pinned to the branch
+    // its discriminator value selects, and senders of the removed value ARE
+    // broken. Evidence rules, all fail-closed:
+    //   - branches identity-matched by discriminator mapping KEY on both
+    //     sides (branch added/removed = lifecycle churn, not enum evidence);
+    //   - explicit-to-explicit enum on the same prop path inside the branch,
+    //     never via a nested union merge;
+    //   - the discriminator property itself is skipped (its per-branch enum
+    //     is the mapping key, already covered by branch lifecycle);
+    //   - skipped when the union-merged pass already reported the same
+    //     prop+value at this anchor (value gone from every branch): one
+    //     change never fires twice.
+    if (oldOp.requestBranches && newOp.requestBranches
+        && oldOp.requestBranches.disc === newOp.requestBranches.disc) {
+      const disc = oldOp.requestBranches.disc;
+      for (const [bkey, oldProps] of oldOp.requestBranches.branches) {
+        const newProps = newOp.requestBranches.branches.get(bkey);
+        if (!newProps) continue; // branch removed: lifecycle, not enum evidence
+        for (const [prop, meta] of oldProps) {
+          if (prop === disc) continue;
+          const next = newProps.get(prop);
+          if (!next) continue; // prop removal inside a branch: separate concern
+          if (!meta.enum || !next.enum || meta.viaUnion || next.viaUnion) continue;
+          for (const v of meta.enum) {
+            if (next.enum.includes(v)) continue;
+            const dup = records.some((r) => r.kind === 'enum-value-removed'
+              && r.anchor === key && r.detail === `${prop} = ${v}`);
+            if (dup) continue;
+            records.push({
+              kind: 'enum-value-removed', breaking: true, anchor: key,
+              detail: `${prop} = ${v} (branch ${bkey})`,
+            });
+          }
+        }
+      }
+    }
 
     // A SUCCESS status code disappearing is breaking: callers branching on
     // that code (e.g. 202 Accepted) stop matching. Checked on the raw status

@@ -766,6 +766,67 @@
      }
     }
    }
+  },
+  "/v1/Notes": {
+   "post": {
+    "operationId": "CreateNote",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "discriminator": {
+         "propertyName": "channel",
+         "mapping": {
+          "email_note": "#/components/schemas/EmailNote",
+          "web_note": "#/components/schemas/WebNote"
+         }
+        },
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/EmailNote"
+         },
+         {
+          "$ref": "#/components/schemas/WebNote"
+         }
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
+  },
+  "/v1/PlainNotes": {
+   "post": {
+    "operationId": "CreatePlainNote",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "oneOf": [
+         {
+          "$ref": "#/components/schemas/EmailNote"
+         },
+         {
+          "$ref": "#/components/schemas/WebNote"
+         }
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "ok"
+     }
+    }
+   }
   }
  },
  "components": {
@@ -831,6 +892,68 @@
      "status",
      "auditTag"
     ]
+   },
+   "EmailNote": {
+    "type": "object",
+    "properties": {
+     "channel": {
+      "type": "string",
+      "enum": [
+       "email_note"
+      ]
+     },
+     "notify": {
+      "type": "string",
+      "enum": [
+       "push",
+       "digest"
+      ]
+     },
+     "level": {
+      "type": "string",
+      "enum": [
+       "low",
+       "high"
+      ]
+     },
+     "tone": {
+      "type": "string",
+      "enum": [
+       "soft"
+      ]
+     }
+    }
+   },
+   "WebNote": {
+    "type": "object",
+    "properties": {
+     "channel": {
+      "type": "string",
+      "enum": [
+       "web_note"
+      ]
+     },
+     "notify": {
+      "type": "string",
+      "enum": [
+       "push",
+       "digest",
+       "none"
+      ]
+     },
+     "allGone": {
+      "type": "string",
+      "enum": [
+       "keep"
+      ]
+     },
+     "tone": {
+      "type": "string",
+      "enum": [
+       "soft"
+      ]
+     }
+    }
    }
   }
  }
