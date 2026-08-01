@@ -3053,6 +3053,41 @@ const MIGRATIONS = {
       },
     ],
   },
+  'vercel-edge-config-to-global-config-path-rename': {
+    provider: 'vercel',
+    title: 'Vercel REST API: the /v1/edge-config resource family renamed to /v1/global-config (v1.28.14)',
+    reference: 'https://github.com/vercel/sdk (OAS snapshots v1.28.13 vs v1.28.14: /v1/edge-config* and .../experimentation/edge-config)',
+    // Explicit north-star coverage claim (see loop/coverage-report.mjs):
+    // spec-diff changes #104126-#104137 record the removal of all twelve
+    // /v1/edge-config* paths (plus the marketplace experimentation
+    // edge-config read/write path) in v1.28.14. Verified against cached OAS
+    // snapshots: every removed path has a successor at the same position
+    // with the edge-config segment renamed to global-config, carrying an
+    // IDENTICAL HTTP method set — and for the eleven /v1/edge-config*
+    // routes, identical operationIds too, so SDK-typed call sites keep
+    // compiling and only raw REST URL builders break. The mend is a
+    // one-segment path rewrite scoped to those URL shapes.
+    covers: [104126, 104127, 104128, 104129, 104130, 104131, 104132, 104133, 104134, 104135, 104136, 104137],
+    rules: [
+      {
+        desc: 'Rewrite raw REST paths /v1/edge-config* and .../experimentation/edge-config to their global-config successors (URL builders and route constants)',
+        // Conservative guards: only fires in files with Vercel context, and
+        // only on the management-API path shapes. The @vercel/edge-config
+        // npm package name and the edge-config.vercel.com data-plane
+        // connection string never match the anchored /v1/ or
+        // /experimentation/ prefixes, so SDK imports and read-client URLs
+        // survive untouched. Output contains global-config and no longer
+        // matches, so the rule is naturally idempotent.
+        detect: /\/(?:v1|experimentation)\/edge-config\b/,
+        apply: (t) => {
+          if (!/api\.vercel\.com/.test(t) && !/\bvercel\b/i.test(t)) return t;
+          return t
+            .replace(/\/v1\/edge-config\b/g, '/v1/global-config')
+            .replace(/(\/experimentation\/)edge-config\b/g, '$1global-config');
+        },
+      },
+    ],
+  },
   'cloudflare-typescript-v7-deterministic-renames': {
     provider: 'cloudflare',
     title: 'cloudflare-typescript v7.0.0: Id->ID method renames, DEXTest type renames, import-path moves, fileFromPath removal',

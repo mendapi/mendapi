@@ -107,6 +107,28 @@ const CASES = [
     minFilesChanged: 2,
   },
   {
+    fixture: 'demo-vercel-globalconfig',
+    migration: 'vercel-edge-config-to-global-config-path-rename',
+    mustHave: [
+      // collection + nested management routes rewritten
+      "api('/v1/global-config', { headers })",
+      '`/v1/global-config/${configId}/items`',
+      '`/v1/global-config/${configId}/backups/${versionId}/restore`',
+      // marketplace experimentation path rewritten
+      '/experimentation/global-config`',
+      // data-plane file must survive byte-identical: package import and
+      // connection-string host are NOT the management API
+      "require('@vercel/edge-config')",
+      "'https://edge-config.vercel.com/ecfg_demo_store?token=demo'",
+    ],
+    mustNotHave: [
+      "api('/v1/edge-config'",
+      '`/v1/edge-config/${configId}',
+      '/experimentation/edge-config`',
+    ],
+    minFilesChanged: 2,
+  },
+  {
     fixture: 'demo-cf-workersai',
     migration: 'cloudflare-workers-ai-model-slug-renames',
     mustHave: [
