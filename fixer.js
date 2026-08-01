@@ -3352,6 +3352,54 @@ const MIGRATIONS = {
       },
     ],
   },
+  'cloudflare-workers-ai-model-slug-renames': {
+    provider: 'cloudflare',
+    title: 'Cloudflare Workers AI: omni-/ray- prefixed model slugs removed — rename to canonical successors',
+    reference: 'cloudflare OAS corridor b61f904f10c9 -> 7abe88500e55 (removals subset, cached in loop/cache/cf-oas/); llm-fix assets 104114-104122',
+    // Explicit north-star coverage claim (see loop/coverage-report.mjs):
+    // changes #104114-#104122 are path-removed records for nine Workers AI
+    // model slugs. Walking both cached specs shows each removed slug has a
+    // canonical successor that exists on BOTH sides (the omni-/ray- names
+    // were aliases), so the mend is a one-token slug substitution — in
+    // AI binding run() calls and in raw REST /ai/run/ URLs alike. The
+    // detr-resnet-50 case renames omni- to nonomni- (its documented
+    // successor), not to a bare slug.
+    covers: [104114, 104115, 104116, 104117, 104118, 104119, 104120, 104121, 104122],
+    rules: [
+      {
+        desc: 'Rename removed omni-/ray- prefixed Workers AI model slugs to their canonical successors (AI binding run() calls and REST /ai/run URLs)',
+        // Conservative guard: the file must actually invoke Workers AI —
+        // either the Workers binding (`AI.run(`/`env.AI.run(`) or a raw
+        // REST `/ai/run/` URL. Catalog/docs files that merely mention a
+        // slug without calling the API are never touched. Model slugs are
+        // full-token unique strings (provider-qualified `@cf/...` paths),
+        // so exact-string substitution is precise; every replacement output
+        // no longer contains its source slug, making the rule idempotent
+        // (facebook/omni-detr -> facebook/nonomni-detr does not re-match:
+        // the map key requires the slash-delimited omni- prefix).
+        detect: /@cf\/(?:baai\/(?:omni|ray)-bge-|facebook\/omni-(?:bart-large-cnn|detr-resnet-50)|google\/omni-embeddinggemma-300m|huggingface\/omni-distilbert-sst-2-int8)/,
+        apply: (t) => {
+          if (!/\bAI\s*\.\s*run\s*\(/.test(t) && !/\/ai\/run\//.test(t)) return t;
+          const SLUG_RENAMES = {
+            '@cf/baai/omni-bge-base-en-v1.5': '@cf/baai/bge-base-en-v1.5',
+            '@cf/baai/omni-bge-large-en-v1.5': '@cf/baai/bge-large-en-v1.5',
+            '@cf/baai/omni-bge-m3': '@cf/baai/bge-m3',
+            '@cf/baai/omni-bge-small-en-v1.5': '@cf/baai/bge-small-en-v1.5',
+            '@cf/baai/ray-bge-large-en-v1.5': '@cf/baai/bge-large-en-v1.5',
+            '@cf/facebook/omni-bart-large-cnn': '@cf/facebook/bart-large-cnn',
+            '@cf/facebook/omni-detr-resnet-50': '@cf/facebook/nonomni-detr-resnet-50',
+            '@cf/google/omni-embeddinggemma-300m': '@cf/google/embeddinggemma-300m',
+            '@cf/huggingface/omni-distilbert-sst-2-int8': '@cf/huggingface/distilbert-sst-2-int8',
+          };
+          let out = t;
+          for (const [legacy, successor] of Object.entries(SLUG_RENAMES)) {
+            out = out.split(legacy).join(successor);
+          }
+          return out;
+        },
+      },
+    ],
+  },
   'firebase-ai-vertexai-to-agent-platform-backend': {
     provider: 'firebase',
     title: 'Firebase AI SDK 12.17.0: VertexAIBackend deprecated in favor of AgentPlatformBackend (default location moves to global)',

@@ -107,6 +107,29 @@ const CASES = [
     minFilesChanged: 2,
   },
   {
+    fixture: 'demo-cf-workersai',
+    migration: 'cloudflare-workers-ai-model-slug-renames',
+    mustHave: [
+      "env.AI.run('@cf/baai/bge-base-en-v1.5'",
+      // detr successor is the nonomni- slug, NOT a bare rename
+      "env.AI.run('@cf/facebook/nonomni-detr-resnet-50'",
+      // already-migrated call site survives untouched
+      "const large = await env.AI.run('@cf/baai/bge-large-en-v1.5'",
+      // raw REST URLs are rewritten too
+      '/ai/run/@cf/baai/bge-large-en-v1.5`',
+      '/ai/run/@cf/google/embeddinggemma-300m`',
+      // catalog file has no AI invocation: guard must leave the legacy slug
+      "slug: '@cf/baai/omni-bge-m3'",
+    ],
+    mustNotHave: [
+      "run('@cf/baai/omni-bge-base-en-v1.5'",
+      "run('@cf/facebook/omni-detr-resnet-50'",
+      '/ai/run/@cf/baai/ray-bge-large-en-v1.5',
+      '/ai/run/@cf/google/omni-embeddinggemma-300m',
+    ],
+    minFilesChanged: 2,
+  },
+  {
     fixture: 'demo-slack-v8',
     migration: 'slack-sdk-v8-errors',
     mustHave: ['instanceof WebAPIPlatformError', 'instanceof WebAPIRateLimitedError', 'instanceof WebAPIRequestError', '!(error instanceof WebAPIHTTPError)', 'instanceof IncomingWebhookHTTPError', 'instanceof IncomingWebhookRequestError'],
