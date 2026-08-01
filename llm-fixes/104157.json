@@ -1,0 +1,25 @@
+{
+ "change_id": 104157,
+ "provider": "openai",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "POST /skills/{skill_id}",
+  "detail": "openai OAS corridor pair 5162af98d314 -> 117ce5680e42 (breaking subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T14:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "high",
+ "spec_evidence": {
+  "old_version": "openai openapi @ 5162af98d314 (2026-05-13, yaml converted)",
+  "new_version": "openai openapi @ 117ce5680e42 (2026-07-31)",
+  "checked": "Walked both cached specs: OLD requestBody.content for POST /skills/{skill_id} lists application/json and application/x-www-form-urlencoded; NEW lists application/json only. The endpoint itself survives in NEW with the same method, so only the form-encoded request wire format is withdrawn."
+ },
+ "alternative_data_source": "the same endpoint accepts application/json request bodies in the NEW spec",
+ "fix": {
+  "strategy": "update-client-transport-config",
+  "migration_guide": "Switch the request body encoding at every call site that POSTs /skills/{skill_id} as a form: replace application/x-www-form-urlencoded submission (URLSearchParams / form-data key-value bodies with the form content-type header) with a JSON body \u2014 set the Content-Type header to application/json and JSON.stringify the same parameters. Official openai SDK clients already send JSON and are unaffected; only raw HTTP callers using form encoding break.",
+  "example_before": "await fetch('https://api.openai.com/v1/skills/{skill_id}', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params) });",
+  "example_after": "await fetch('https://api.openai.com/v1/skills/{skill_id}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) });"
+ }
+}
