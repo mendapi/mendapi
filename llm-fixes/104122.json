@@ -1,0 +1,25 @@
+{
+ "change_id": 104122,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/accounts/{account_id}/ai/run/@cf/huggingface/omni-distilbert-sst-2-int8",
+  "detail": "cloudflare OAS corridor pair b61f904f10c9 -> 7abe88500e55 (removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "high",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ b61f904f10c9 (2025-12-16)",
+  "new_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "checked": "Walked both cached specs: OLD paths contains /accounts/{account_id}/ai/run/@cf/huggingface/omni-distilbert-sst-2-int8 while NEW does not (path removed); the same-model canonical slug @cf/huggingface/distilbert-sst-2-int8 is present in BOTH old and new spec paths, so the removed route is a duplicate alias slug for a model that keeps serving under its canonical name."
+ },
+ "alternative_data_source": "the same model remains served at /accounts/{account_id}/ai/run/@cf/huggingface/distilbert-sst-2-int8",
+ "fix": {
+  "strategy": "endpoint-slug-rename",
+  "migration_guide": "Mechanical slug rewrite at every call site that runs this Workers AI model: replace the removed model slug '@cf/huggingface/omni-distilbert-sst-2-int8' with the canonical slug '@cf/huggingface/distilbert-sst-2-int8' in the ai/run URL (raw fetch callers) or in the model-name argument passed to env.AI.run / the SDK ai.run helper. Request and response schemas for the canonical route are unchanged between the two specs, so no payload edits are needed; this is a one-token rename per call site.",
+  "example_before": "await env.AI.run('@cf/huggingface/omni-distilbert-sst-2-int8', { text: input });",
+  "example_after": "await env.AI.run('@cf/huggingface/distilbert-sst-2-int8', { text: input });"
+ }
+}

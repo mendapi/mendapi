@@ -1,0 +1,25 @@
+{
+ "change_id": 104123,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/accounts/{account_id}/ai/run/@hf/thebloke/llamaguard-7b-awq",
+  "detail": "cloudflare OAS corridor pair b61f904f10c9 -> 7abe88500e55 (removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "medium",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ b61f904f10c9 (2025-12-16)",
+  "new_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "checked": "Walked both cached specs: OLD paths contains the @hf/thebloke/llamaguard-7b-awq ai/run route and NEW does not; a substring search for 'llamaguard' across every NEW spec path returns zero hits, so the model was delisted with no renamed successor route."
+ },
+ "alternative_data_source": "guard/moderation-class models remain available under other ai/run slugs (e.g. @cf/meta family) listed in the NEW spec model catalog",
+ "fix": {
+  "strategy": "remove-discontinued-endpoint-call",
+  "migration_guide": "Delete or reroute every call site that invokes the delisted llamaguard-7b-awq model: the route now returns model-not-found. Removing the dead env.AI.run call (and any branch that gates on its output) is the mechanical mend; choosing a replacement moderation model is a documented product decision, so the codemod stops at deleting the discontinued invocation and flagging the call site.",
+  "example_before": "const guard = await env.AI.run('@hf/thebloke/llamaguard-7b-awq', { messages });",
+  "example_after": "// llamaguard-7b-awq was delisted upstream; moderation call removed.\n// TODO(product): pick a replacement moderation model if gating is still required."
+ }
+}

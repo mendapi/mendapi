@@ -1,0 +1,25 @@
+{
+ "change_id": 104113,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/accounts/{account_id}/ai-search/instances/{id}/items/{item_id}",
+  "detail": "cloudflare OAS corridor pair b61f904f10c9 -> 7abe88500e55 (removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "medium",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ b61f904f10c9 (2025-12-16)",
+  "new_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "checked": "Walked both cached specs: OLD paths contains /accounts/{account_id}/ai-search/instances/{id}/items/{item_id} exposing only a GET operation, NEW paths does not contain it, and no items-shaped listing route exists anywhere under ai-search in the NEW spec (remaining routes: instances CRUD, chat/completions, jobs, jobs logs, search, stats, tokens) \u2014 a read-only surface removed with no successor."
+ },
+ "alternative_data_source": "instance ingestion state is still observable through the remaining /ai-search/instances/{id}/jobs, /jobs/{job_id}/logs and /stats routes in the NEW spec",
+ "fix": {
+  "strategy": "remove-discontinued-endpoint-call",
+  "migration_guide": "Delete the dead read at every call site: the items listing GET now 404s. Removing the request and the code that consumes its response is the mechanical mend; if the caller needs ingestion visibility, the jobs/logs/stats routes still expose corpus processing state, but selecting which to adopt is a product decision outside the codemod.",
+  "example_before": "const item = await cf.get(`/accounts/${acct}/ai-search/instances/${id}/items/${itemId}`);",
+  "example_after": "// GET .../items/{item_id} was removed upstream; dead read deleted.\n// Per-document status is now observed via the job logs endpoint."
+ }
+}

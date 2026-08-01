@@ -1,0 +1,25 @@
+{
+ "change_id": 104125,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "DELETE /accounts/{account_id}/cloudforce-one/events/{event_id}",
+  "detail": "cloudflare OAS corridor pair b61f904f10c9 -> 7abe88500e55 (removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "medium",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ b61f904f10c9 (2025-12-16)",
+  "new_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "checked": "Walked both cached specs: the path /accounts/{account_id}/cloudforce-one/events/{event_id} exists in BOTH specs, but its method set shrinks from [delete, get, patch, post] in OLD to [get, patch, post] in NEW \u2014 the DELETE operation alone was withdrawn while the rest of the resource survives."
+ },
+ "alternative_data_source": "the same event resource remains readable and editable via the surviving GET and PATCH operations on the identical path",
+ "fix": {
+  "strategy": "remove-discontinued-endpoint-call",
+  "migration_guide": "Delete or gate every call site that issues DELETE against cloudforce-one events: the verb now returns method-not-allowed. Removing the delete invocation (and any UI affordance wired to it) is the mechanical mend; if soft-deletion semantics are needed, PATCHing the event into an archived state is the surviving write surface, but adopting that policy is a product decision outside the codemod.",
+  "example_before": "await cf.delete(`/accounts/${acct}/cloudforce-one/events/${eventId}`);",
+  "example_after": "// DELETE on cloudforce-one events was withdrawn upstream; call removed.\n// The event remains readable via GET and editable via PATCH on the same path."
+ }
+}
