@@ -1,0 +1,25 @@
+{
+ "change_id": 104143,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/accounts/{account_id}/containers",
+  "detail": "cloudflare OAS corridor pair 7abe88500e55 -> c92b9b0fde23 (client-breaking removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "medium",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "new_version": "cloudflare openapi.json @ c92b9b0fde23 (2026-07-27)",
+  "checked": "Walked both cached specs: OLD paths contains /accounts/{account_id}/containers while NEW does not; NEW paths contains /accounts/{account_id}/containers/applications carrying the method set (get). NEW introduces a containers/applications family (get, post plus per-application routes) absent from OLD; the bare collection listing is replaced by the applications listing."
+ },
+ "alternative_data_source": "the successor route /accounts/{account_id}/containers/applications in the NEW spec",
+ "fix": {
+  "strategy": "endpoint-path-rename",
+  "migration_guide": "Mechanical URL rewrite at every call site: requests hitting '/accounts/{account_id}/containers' (get) move to '/accounts/{account_id}/containers/applications'. Update raw URL builders, route constants and API client wrappers accordingly. NEW introduces a containers/applications family (get, post plus per-application routes) absent from OLD; the bare collection listing is replaced by the applications listing.",
+  "example_before": "await cf.request('/accounts/{account_id}/containers');",
+  "example_after": "await cf.request('/accounts/{account_id}/containers/applications');"
+ }
+}

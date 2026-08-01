@@ -1,0 +1,25 @@
+{
+ "change_id": 104146,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/system/accounts/{account_tag}/stores",
+  "detail": "cloudflare OAS corridor pair 7abe88500e55 -> c92b9b0fde23 (client-breaking removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "high",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "new_version": "cloudflare openapi.json @ c92b9b0fde23 (2026-07-27)",
+  "checked": "Walked both cached specs: OLD paths contains /system/accounts/{account_tag}/stores while NEW does not; NEW paths contains /accounts/{account_id}/secrets_store/stores carrying the method set (get, post). The successor carries the identical method set in NEW; the legacy /system alias is removed while the secrets_store family (already present in OLD) remains. account_tag becomes account_id."
+ },
+ "alternative_data_source": "the successor route /accounts/{account_id}/secrets_store/stores in the NEW spec",
+ "fix": {
+  "strategy": "endpoint-path-rename",
+  "migration_guide": "Mechanical URL rewrite at every call site: requests hitting '/system/accounts/{account_tag}/stores' (get, post) move to '/accounts/{account_id}/secrets_store/stores'. Update raw URL builders, route constants and API client wrappers accordingly. The successor carries the identical method set in NEW; the legacy /system alias is removed while the secrets_store family (already present in OLD) remains. account_tag becomes account_id.",
+  "example_before": "await cf.request('/system/accounts/{account_tag}/stores');",
+  "example_after": "await cf.request('/accounts/{account_id}/secrets_store/stores');"
+ }
+}

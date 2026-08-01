@@ -1,0 +1,25 @@
+{
+ "change_id": 104153,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/zones/{zone_id}/firewall-for-ai/settings",
+  "detail": "cloudflare OAS corridor pair 7abe88500e55 -> c92b9b0fde23 (client-breaking removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "high",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "new_version": "cloudflare openapi.json @ c92b9b0fde23 (2026-07-27)",
+  "checked": "Walked both cached specs: OLD paths contains /zones/{zone_id}/firewall-for-ai/settings while NEW does not; NEW paths contains /zones/{zone_id}/ai-security/settings carrying the method set (get, put). The successor carries the identical method set in NEW; the firewall-for-ai product segment is renamed to ai-security."
+ },
+ "alternative_data_source": "the successor route /zones/{zone_id}/ai-security/settings in the NEW spec",
+ "fix": {
+  "strategy": "endpoint-path-rename",
+  "migration_guide": "Mechanical URL rewrite at every call site: requests hitting '/zones/{zone_id}/firewall-for-ai/settings' (get, put) move to '/zones/{zone_id}/ai-security/settings'. Update raw URL builders, route constants and API client wrappers accordingly. The successor carries the identical method set in NEW; the firewall-for-ai product segment is renamed to ai-security.",
+  "example_before": "await cf.request('/zones/{zone_id}/firewall-for-ai/settings');",
+  "example_after": "await cf.request('/zones/{zone_id}/ai-security/settings');"
+ }
+}

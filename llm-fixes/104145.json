@@ -1,0 +1,25 @@
+{
+ "change_id": 104145,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/accounts/{accountId}/resource-library/applications/{id}",
+  "detail": "cloudflare OAS corridor pair 7abe88500e55 -> c92b9b0fde23 (client-breaking removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "medium",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "new_version": "cloudflare openapi.json @ c92b9b0fde23 (2026-07-27)",
+  "checked": "Walked both cached specs: OLD paths contains /accounts/{accountId}/resource-library/applications/{id} while NEW does not; NEW paths contains /accounts/{account_id}/resource-library/applications/{id} carrying the method set (get, patch). NEW exposes the snake_case path with GET only: the PATCH (update) capability was dropped alongside the casing change, so write paths need explicit handling, not just a URL rewrite."
+ },
+ "alternative_data_source": "the successor route /accounts/{account_id}/resource-library/applications/{id} in the NEW spec",
+ "fix": {
+  "strategy": "endpoint-path-rename",
+  "migration_guide": "Mechanical URL rewrite at every call site: requests hitting '/accounts/{accountId}/resource-library/applications/{id}' (get, patch) move to '/accounts/{account_id}/resource-library/applications/{id}'. Update raw URL builders, route constants and API client wrappers accordingly. NEW exposes the snake_case path with GET only: the PATCH (update) capability was dropped alongside the casing change, so write paths need explicit handling, not just a URL rewrite.",
+  "example_before": "await cf.request('/accounts/{accountId}/resource-library/applications/{id}');",
+  "example_after": "await cf.request('/accounts/{account_id}/resource-library/applications/{id}');"
+ }
+}

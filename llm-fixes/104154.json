@@ -1,0 +1,25 @@
+{
+ "change_id": 104154,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/zones/{zone_id}/ssl/recommendation",
+  "detail": "cloudflare OAS corridor pair 7abe88500e55 -> c92b9b0fde23 (client-breaking removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "medium",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "new_version": "cloudflare openapi.json @ c92b9b0fde23 (2026-07-27)",
+  "checked": "Walked both cached specs: OLD paths contains /zones/{zone_id}/ssl/recommendation (get) while NEW does not, and no successor path with an equivalent surface exists in NEW. No recommendation-style SSL route remains in NEW; /zones/{zone_id}/ssl/verification (present in both OLD and NEW) serves certificate verification state, not mode recommendations."
+ },
+ "alternative_data_source": "No recommendation-style SSL route remains in NEW; /zones/{zone_id}/ssl/verification (present in both OLD and NEW) serves certificate verification state, not mode recommendations.",
+ "fix": {
+  "strategy": "remove-discontinued-endpoint-call",
+  "migration_guide": "No direct replacement route exists in the NEW spec. Remove or feature-flag the call to '/zones/{zone_id}/ssl/recommendation' (get) and handle the missing capability explicitly. No recommendation-style SSL route remains in NEW; /zones/{zone_id}/ssl/verification (present in both OLD and NEW) serves certificate verification state, not mode recommendations.",
+  "example_before": "await cf.request('/zones/{zone_id}/ssl/recommendation');",
+  "example_after": "// endpoint discontinued upstream; call removed (see migration guide)"
+ }
+}

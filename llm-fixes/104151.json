@@ -1,0 +1,25 @@
+{
+ "change_id": 104151,
+ "provider": "cloudflare",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/users/tenants",
+  "detail": "cloudflare OAS corridor pair 7abe88500e55 -> c92b9b0fde23 (client-breaking removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "high",
+ "spec_evidence": {
+  "old_version": "cloudflare openapi.json @ 7abe88500e55 (2026-03-31)",
+  "new_version": "cloudflare openapi.json @ c92b9b0fde23 (2026-07-27)",
+  "checked": "Walked both cached specs: OLD paths contains /users/tenants while NEW does not; NEW paths contains /user/tenants carrying the method set (get). The successor carries the identical method set in NEW; plural /users collection segment becomes singular /user."
+ },
+ "alternative_data_source": "the successor route /user/tenants in the NEW spec",
+ "fix": {
+  "strategy": "endpoint-path-rename",
+  "migration_guide": "Mechanical URL rewrite at every call site: requests hitting '/users/tenants' (get) move to '/user/tenants'. Update raw URL builders, route constants and API client wrappers accordingly. The successor carries the identical method set in NEW; plural /users collection segment becomes singular /user.",
+  "example_before": "await cf.request('/users/tenants');",
+  "example_after": "await cf.request('/user/tenants');"
+ }
+}
