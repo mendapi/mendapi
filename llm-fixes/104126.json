@@ -1,0 +1,25 @@
+{
+ "change_id": 104126,
+ "provider": "vercel",
+ "source": {
+  "kind": "spec-diff",
+  "anchor": "/v1/edge-config",
+  "detail": "vercel OAS corridor pair v1.28.13 -> v1.28.14 (removals subset ingested 2026-08-01)"
+ },
+ "classifier": "llm-fix-v1",
+ "generated_at": "2026-08-01T12:00:00.000Z",
+ "verdict": "code-fixable",
+ "confidence": "high",
+ "spec_evidence": {
+  "old_version": "vercel vercel-spec.json @ v1.28.13",
+  "new_version": "vercel vercel-spec.json @ v1.28.14",
+  "checked": "Walked both cached specs: OLD paths contains /v1/edge-config while NEW does not (path removed); NEW paths contains /v1/global-config which is absent from OLD, and the successor path carries the identical HTTP method set (get, post) as the removed path did in OLD \u2014 a one-to-one resource-family rename (edge-config -> global-config) within the v1.28.13 -> v1.28.14 corridor."
+ },
+ "alternative_data_source": "the same resource is served at /v1/global-config in the NEW spec with an identical method set",
+ "fix": {
+  "strategy": "endpoint-path-rename",
+  "migration_guide": "Mechanical path rewrite at every call site: replace the '/edge-config' segment with '/global-config' in raw URL builders, route constants, and API client wrappers hitting '/v1/edge-config'. The successor route exposes the same method set (get, post) with the same path parameters, so no request or response handling edits are required beyond the one-segment rename.",
+  "example_before": "const res = await fetch(`https://api.vercel.com/v1/edge-config`, opts);",
+  "example_after": "const res = await fetch(`https://api.vercel.com/v1/global-config`, opts);"
+ }
+}
