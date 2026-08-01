@@ -101,9 +101,19 @@ Alert fatigue kills tools like this. Our scanner gates every finding through:
 
 Dogfooding across three production repos: the current pipeline reports **zero false positives** where an earlier naive version produced 27.
 
+## Measured in public
+
+We benchmark the change database against real provider spec corpora and publish the full accounting — every headline number is recomputed from archived evidence by the site's build gates, so the reports cannot drift from the data:
+
+- [What 47 Stripe API versions taught us about breaking-change detection](https://mendapi.com/blog/stripe-parity-47-pair-capstone.html) — 47 consecutive spec pairs, head-to-head with oasdiff, zero unexplained gaps.
+- [Three more providers, 49 spec pairs, zero unexplained gaps](https://mendapi.com/blog/tvp-parity-49-pair-capstone.html) — the same audit across Twilio, PayPal, and Vercel.
+- [20 Twilio spec pairs: 358 findings from one engine, 142 from ours, and every disagreement named](https://mendapi.com/blog/twilio-parity-20-pair-capstone.html) — why two engines disagree by 2.5x, with every divergence accounted for.
+- [136 raw removals, 17 real ones: what a spec diff over-reports](https://mendapi.com/blog/cloudflare-curation-136-to-17.html) — the curation rules that keep alert fatigue out of the feed.
+- [821 OpenAI spec changes, 3 that can break a client: the honest negative](https://mendapi.com/blog/openai-corridor-821-to-3-capstone.html) — the value of a tool that tells you when you are fine.
+
 ## Status
 
-Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.0). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
+Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.1). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
 
 ## License
 
