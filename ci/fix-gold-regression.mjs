@@ -129,6 +129,26 @@ const CASES = [
     minFilesChanged: 2,
   },
   {
+    fixture: 'demo-cf-secretsstore',
+    migration: 'cloudflare-secrets-store-and-ai-security-path-renames',
+    mustHave: [
+      // /system alias family rewritten to the canonical secrets_store routes
+      '`/accounts/${ACCOUNT}/secrets_store/stores`',
+      '/accounts/${ACCOUNT}/secrets_store/stores/${storeId}/secrets/${secretId}/duplicate`',
+      // firewall-for-ai product segment renamed
+      '/ai-security/settings`',
+      '/ai-security/custom-topics`',
+      // already-canonical call site survives (function name proves the
+      // pre-existing canonical line was not double-rewritten)
+      'listStoresCanonical',
+    ],
+    mustNotHave: [
+      '/system/accounts/',
+      '/firewall-for-ai/',
+    ],
+    minFilesChanged: 2,
+  },
+  {
     fixture: 'demo-cf-workersai',
     migration: 'cloudflare-workers-ai-model-slug-renames',
     mustHave: [

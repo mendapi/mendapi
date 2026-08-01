@@ -3088,6 +3088,57 @@ const MIGRATIONS = {
       },
     ],
   },
+  'cloudflare-secrets-store-and-ai-security-path-renames': {
+    provider: 'cloudflare',
+    title: 'Cloudflare REST API: legacy /system secrets-store alias removed and firewall-for-ai renamed to ai-security (OAS 2026-07-27)',
+    reference: 'https://github.com/cloudflare/api-schemas (OAS snapshots 7abe88500e55 vs c92b9b0fde23: /system/accounts/* stores family and /zones/*/firewall-for-ai/*)',
+    // Explicit north-star coverage claims (see loop/coverage-report.mjs):
+    // spec-diff changes #104146-#104150 record the removal of the five
+    // /system/accounts/{account_tag}/stores* secrets-store alias paths;
+    // #104152/#104153 record the removal of the two
+    // /zones/{zone_id}/firewall-for-ai/* paths. Verified against cached OAS
+    // snapshots: every removed path has a successor carrying an IDENTICAL
+    // HTTP method set — /accounts/{account_id}/secrets_store/stores* (the
+    // canonical family, already present in the OLD spec) and
+    // /zones/{zone_id}/ai-security/* respectively. The account_tag path
+    // parameter becomes account_id; for Cloudflare accounts the tag IS the
+    // account id, so existing caller variables keep working and the mend is
+    // a pure URL-shape rewrite.
+    covers: [104146, 104147, 104148, 104149, 104150, 104152, 104153],
+    rules: [
+      {
+        desc: 'Rewrite legacy /system/accounts/{tag}/stores* secrets-store URLs to the canonical /accounts/{id}/secrets_store/stores* family',
+        // Conservative guards: only fires in files with Cloudflare context.
+        // The single anchored rewrite covers the whole five-path family
+        // (deeper routes share the /system/accounts/{tag}/stores prefix).
+        // The caller's path-parameter expression (a template interpolation
+        // or a literal) is preserved verbatim. Output starts with
+        // /accounts/ and no longer matches the /system/ prefix, so the
+        // rule is naturally idempotent, and the canonical secrets_store
+        // family (already-migrated code) is never touched.
+        detect: /\/system\/accounts\/[^/\s'"`]+\/stores\b/,
+        apply: (t) => {
+          if (!/api\.cloudflare\.com/.test(t) && !/\bcloudflare\b/i.test(t)) return t;
+          return t.replace(
+            /\/system\/accounts\/((?:\$\{[^}]+\})|[^/\s'"`]+)\/stores\b/g,
+            '/accounts/$1/secrets_store/stores',
+          );
+        },
+      },
+      {
+        desc: 'Rewrite /zones/{zone}/firewall-for-ai/* URLs to their /zones/{zone}/ai-security/* successors (product segment rename)',
+        // Conservative guards: only fires in files with Cloudflare context,
+        // and only on the path segment shape (leading and trailing slash),
+        // so prose mentions of the old product name survive. Output no
+        // longer matches -> idempotent.
+        detect: /\/firewall-for-ai\//,
+        apply: (t) => {
+          if (!/api\.cloudflare\.com/.test(t) && !/\bcloudflare\b/i.test(t)) return t;
+          return t.replace(/\/firewall-for-ai\//g, '/ai-security/');
+        },
+      },
+    ],
+  },
   'cloudflare-typescript-v7-deterministic-renames': {
     provider: 'cloudflare',
     title: 'cloudflare-typescript v7.0.0: Id->ID method renames, DEXTest type renames, import-path moves, fileFromPath removal',
