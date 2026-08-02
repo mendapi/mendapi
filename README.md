@@ -68,6 +68,52 @@ mendapi pr --repo /path/to/your/repo --from-report impact.json
 
 Running from a checkout? `node app/cli.js <command>` works identically.
 
+## What a fix looks like
+
+This is real output — the exact diff our test suite pins, byte for byte, for the `openai-node` v3 → v4 migration pack. Note the two lines that *mention* the legacy calls inside a string and a template literal: the codemod leaves both untouched, because rules anchor on call positions in the syntax tree, not on text patterns.
+
+```diff
+--- a/lib/ai.js
++++ b/lib/ai.js
+@@ -1,28 +1,27 @@
+ // Demo service using the legacy openai-node v3 SDK (pre-v4 breaking change).
+ // Docs note: openai.createChatCompletion({...}) was the v3 entry point.
+-const { Configuration, OpenAIApi } = require('openai');
++const OpenAI = require('openai');
+ 
+ // This string mentions the legacy call and must never be rewritten by the fixer:
+ const LEGACY_HINT = 'if you still call openai.createChatCompletion( upgrade to v4';
+ const AUDIT_LOG_LINE = `migrating away from .createEmbedding( for tenant`;
+ 
+-const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
+-const openai = new OpenAIApi(configuration);
++const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+ 
+ async function summarize(text) {
+-  const response = await openai.createChatCompletion({
++  const response = await openai.chat.completions.create({
+     model: 'gpt-4',
+     messages: [{ role: 'user', content: `Summarize: ${text}` }],
+   });
+-  return response.data.choices[0].message.content;
++  return response.choices[0].message.content;
+ }
+ 
+ async function embed(text) {
+-  const response = await openai.createEmbedding({
++  const response = await openai.embeddings.create({
+     model: 'text-embedding-ada-002',
+     input: text,
+   });
+-  return response.data.data[0].embedding;
++  return response.data[0].embedding;
+ }
+ 
+ module.exports = { summarize, embed };
+```
+
+Every migration pack ships with a pinned diff like this one; the build fails if a pack's output drifts from its gold evidence. Six more, embedded with the same byte-match guarantee, are on the provider guides: [OpenAI](https://mendapi.com/guides/openai-node-v3-to-v4-migration.html), [AWS](https://mendapi.com/guides/aws-sdk-v2-to-v3-migration.html), [Cloudflare](https://mendapi.com/guides/cloudflare-typescript-v6-to-v7-migration.html), [PayPal](https://mendapi.com/guides/paypal-server-sdk-migration.html), [Vercel](https://mendapi.com/guides/vercel-sdk-migration.html), [Stripe](https://mendapi.com/guides/stripe-payment-records-migration.html), [Shopify](https://mendapi.com/guides/shopify-graphql-api-migration.html).
+
 ## Use it from your AI coding agent (MCP)
 
 `mendapi mcp` starts a Model Context Protocol server on stdio — **offline-first, zero network**: every tool call runs the local CLIs against the local SQLite database only, and the server ships with zero npm dependencies. It speaks the current MCP revision (2026-07-28, per-request `_meta` version negotiation + `server/discover`) and keeps full backward compatibility with older clients that use the `initialize` handshake (2025-06-18 / 2025-03-26) — a dual-era server, because a tool that repairs breaking changes should not ship one.
