@@ -99,5 +99,12 @@ if (!target) {
   process.exit(2);
 }
 
-const res = spawnSync(process.execPath, [join(ROOT, target.script), ...rest], { stdio: 'inherit' });
+// Suppress the node:sqlite ExperimentalWarning on every subcommand: it prints two lines of
+// noise to stderr on each run (bad first impression, pollutes MCP stdio logs). The flag
+// exists since Node 21.3.0 and our engines floor is 22.13.0, so it is always available here.
+const res = spawnSync(
+  process.execPath,
+  ['--disable-warning=ExperimentalWarning', join(ROOT, target.script), ...rest],
+  { stdio: 'inherit' }
+);
 process.exit(res.status ?? 1);
