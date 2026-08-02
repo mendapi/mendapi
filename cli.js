@@ -107,4 +107,13 @@ const res = spawnSync(
   ['--disable-warning=ExperimentalWarning', join(ROOT, target.script), ...rest],
   { stdio: 'inherit' }
 );
-process.exit(res.status ?? 1);
+// CLI convention: explicitly requested help is a success, never a usage error.
+// Each subcommand prints its usage text when asked for --help (it lands on the
+// usage-error path), but exits with its usage-error code (2; review: 1).
+// Normalize the bare `mendapi <cmd> --help` invocation to exit 0 at this single
+// dispatch point. Scoped tight: only when --help/-h is the sole argument AND the
+// subcommand returned its usage code — real runs and mixed-flag calls keep
+// their true exit codes (e.g. `fix --migration bad --help` still fails loud).
+const helpOnly = rest.length === 1 && (rest[0] === '--help' || rest[0] === '-h');
+const usageCode = cmd === 'review' ? 1 : 2;
+process.exit(helpOnly && res.status === usageCode ? 0 : (res.status ?? 1));
