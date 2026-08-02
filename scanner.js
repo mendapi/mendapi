@@ -736,9 +736,9 @@ function printTerminalReport(report, elapsedMs) {
 // No network code here — this is informational text only.
 function printHostedHint() {
   const lines = [
-    dim('Tip: this scan is a snapshot. mendapi cloud watches these providers'),
-    dim('continuously and alerts you the moment a breaking change lands.'),
-    dim('-> https://mendapi.com (free for 1 repo)'),
+    dim('Tip: this scan is a snapshot. Hosted monitoring — continuous watch on'),
+    dim('these providers with alerts the moment a breaking change lands — is in'),
+    dim('the works. Join the waitlist -> https://mendapi.com'),
     '',
   ];
   console.log(lines.join('\n'));
