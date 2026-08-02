@@ -68,7 +68,9 @@ function main() {
   }
   if (!migration) fail('Provide --migration or --from-report.');
 
-  const outDir = args['out-dir'] || join(ROOT, '..', 'loop', 'evidence', `pr-${migration}`);
+  // Default under cwd/.mendapi — see fixer.js for the rationale (no writes
+  // next to the installed package, dot-dir invisible to scans).
+  const outDir = args['out-dir'] || join(process.cwd(), '.mendapi', `pr-${migration}`);
   mkdirSync(outDir, { recursive: true });
 
   const baseBranch = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD');

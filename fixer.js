@@ -3953,7 +3953,12 @@ function runMigration(migrationName, repoPath, opts) {
     if (opts.json) console.log(JSON.stringify(refusal, null, 2));
     process.exit(3);
   }
-  const outDir = opts.outDir || join(ROOT, '..', 'loop', 'evidence', `fix-${migrationName}`);
+  // Default output goes to .mendapi/ under the current working directory —
+  // never inside the installed package tree (an npm consumer must not have
+  // artifacts written next to node_modules), and never into a repo-relative
+  // path that could collide with tracked files (dot-dirs are skipped by both
+  // the scanner and the fixer walk).
+  const outDir = opts.outDir || join(process.cwd(), '.mendapi', `fix-${migrationName}`);
   mkdirSync(outDir, { recursive: true });
 
   const report = {

@@ -142,7 +142,9 @@ async function main() {
     process.exit(0);
   }
 
-  const outDir = args['out-dir'] || join(ROOT, '..', 'loop', 'evidence', 'llm-fix-drafts');
+  // Default under cwd/.mendapi — see fixer.js for the rationale (no writes
+  // next to the installed package, dot-dir invisible to scans).
+  const outDir = args['out-dir'] || join(process.cwd(), '.mendapi', 'llm-fix-drafts');
   mkdirSync(outDir, { recursive: true });
   const { unifiedDiff } = await import('./fixer.js');
 
