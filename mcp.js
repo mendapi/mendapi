@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(ROOT, 'data', 'sentinel.db');
+import { DB_PATH } from './dbpath.js';
 
 // Server identity: version is read from package.json (single source) so the
 // MCP serverInfo can never drift from the published npm version again.

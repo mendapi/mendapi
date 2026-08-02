@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { SIGNATURES, scanRepo, walk } from './scanner.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(ROOT, 'data', 'sentinel.db');
+import { DB_PATH } from './dbpath.js';
 
 function parseArgs(argv) {
   const args = {};

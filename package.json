@@ -26,6 +26,7 @@
     "scanner.js",
     "fixer.js",
     "astlite.js",
+    "dbpath.js",
     "pr.js",
     "review.js",
     "payload.js",

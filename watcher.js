@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(ROOT, 'data', 'sentinel.db');
+import { DB_PATH } from './dbpath.js';
 
 // provider -> list of GitHub repos whose releases we watch
 const SOURCES = {
@@ -114,7 +114,7 @@ export function classify(rawText, title = '') {
 }
 
 function openDb() {
-  mkdirSync(join(ROOT, 'data'), { recursive: true });
+  mkdirSync(dirname(DB_PATH), { recursive: true });
   const db = new DatabaseSync(DB_PATH);
   db.exec(`
     CREATE TABLE IF NOT EXISTS changes (

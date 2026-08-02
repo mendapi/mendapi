@@ -28,7 +28,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(ROOT, 'data', 'sentinel.db');
+import { DB_PATH } from './dbpath.js';
 
 const VALID = new Set(['code-fixable', 'not-code-fixable', 'unclear']);
 

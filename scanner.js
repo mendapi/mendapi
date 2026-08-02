@@ -19,7 +19,7 @@ import { join, dirname, extname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(ROOT, 'data', 'sentinel.db');
+import { DB_PATH } from './dbpath.js';
 
 // ---------- provider signatures ----------
 // Each provider: how its SDK / API shows up inside a codebase.

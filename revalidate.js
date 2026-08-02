@@ -36,7 +36,8 @@ import { fileURLToPath } from 'node:url';
 import { anchorPath } from './deps.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-export const DEFAULT_DB_PATH = join(ROOT, 'data', 'sentinel.db');
+import { DB_PATH as DEFAULT_DB_PATH } from './dbpath.js';
+export { DEFAULT_DB_PATH };
 
 // spec-diff source repos carry the version pair in the name
 // (e.g. "spec-diff:twilio-verify-1.30.0-to-1.40.0"); strip it so successive
