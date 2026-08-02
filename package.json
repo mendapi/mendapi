@@ -41,7 +41,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.13.0"
   },
   "author": "mendapi <contact@mendapi.com>",
   "repository": {

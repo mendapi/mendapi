@@ -18,7 +18,7 @@ Using an AI coding agent? One line plugs mendapi into Claude Code as an MCP serv
 claude mcp add mendapi -- npx mendapi mcp
 ```
 
-Requires Node.js 22+. Everything runs locally: the scanner, fixer, and review CLIs contain no network code at all.
+Requires Node.js 22.13 or newer. Everything runs locally: the scanner, fixer, and review CLIs contain no network code at all.
 
 ## Security model (read this first)
 
@@ -43,7 +43,7 @@ Three components form a closed loop:
 
 ## Quickstart
 
-Requires Node.js 22+ (uses built-in `node:sqlite`). Zero npm dependencies.
+Requires Node.js 22.13 or newer (uses built-in `node:sqlite`). Zero npm dependencies.
 
 ```bash
 # Fetch the latest API change feed (the only command that touches the network)

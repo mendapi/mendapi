@@ -55,6 +55,29 @@ function printHelp() {
   console.log('Run `mendapi --version` to print the installed version.');
 }
 
+// Preflight: node:sqlite is only available unflagged on Node >= 22.13.0 (23.4.0 on the 23.x line).
+// Older 22.x passes a naive "22+" check yet crashes with ERR_UNKNOWN_BUILTIN_MODULE — fail loud
+// with a clear message instead of a stack trace. Required version is read from package.json engines.
+// Called after the --help/--version branches: those need no sqlite and must always work.
+function checkNodeVersion() {
+  let required = '22.13.0';
+  try {
+    const engines = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).engines;
+    const m = /([0-9]+\.[0-9]+\.[0-9]+)/.exec(engines?.node || '');
+    if (m) required = m[1];
+  } catch { /* fall back to the documented floor */ }
+  const cur = process.versions.node.split('.').map(Number);
+  const req = required.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (cur[i] > req[i]) return;
+    if (cur[i] < req[i]) {
+      console.error(`mendapi requires Node.js >= ${required} (built-in node:sqlite).`);
+      console.error(`You are running Node.js ${process.versions.node}. Please upgrade: https://nodejs.org/`);
+      process.exit(1);
+    }
+  }
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 
 if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
@@ -66,6 +89,8 @@ if (cmd === '--version' || cmd === '-v' || cmd === 'version') {
   console.log(pkgVersion());
   process.exit(0);
 }
+
+checkNodeVersion();
 
 const target = COMMANDS[cmd];
 if (!target) {
