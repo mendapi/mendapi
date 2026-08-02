@@ -134,7 +134,7 @@ Cursor (or any JSON-configured MCP client) — add to `.cursor/mcp.json`:
 }
 ```
 
-Tools exposed: `scan`, `deps`, `fix`, `changes` — the same `schema_version`-stamped JSON as the CLI `--json` flags. See the [For AI agents](https://mendapi.com/docs/agents.html) docs page for the full tool catalog and an autonomous-maintenance recipe.
+Tools exposed: `scan`, `deps`, `fix`, `revalidate`, `changes` — the same `schema_version`-stamped JSON as the CLI `--json` flags. See the [For AI agents](https://mendapi.com/docs/agents.html) docs page for the full tool catalog and an autonomous-maintenance recipe.
 
 ## Why precision matters
 
