@@ -108,6 +108,7 @@ We benchmark the change database against real provider spec corpora and publish 
 - [What 47 Stripe API versions taught us about breaking-change detection](https://mendapi.com/blog/stripe-parity-47-pair-capstone.html) — 47 consecutive spec pairs, head-to-head with oasdiff, zero unexplained gaps.
 - [Three more providers, 49 spec pairs, zero unexplained gaps](https://mendapi.com/blog/tvp-parity-49-pair-capstone.html) — the same audit across Twilio, PayPal, and Vercel.
 - [20 Twilio spec pairs: 358 findings from one engine, 142 from ours, and every disagreement named](https://mendapi.com/blog/twilio-parity-20-pair-capstone.html) — why two engines disagree by 2.5x, with every divergence accounted for.
+- [11 Vercel spec pairs: a real 12-endpoint removal, and the release notes that cried breaking](https://mendapi.com/blog/vercel-parity-11-pair-capstone.html) — the changelog got it wrong in both directions; the wire did not.
 - [136 raw removals, 17 real ones: what a spec diff over-reports](https://mendapi.com/blog/cloudflare-curation-136-to-17.html) — the curation rules that keep alert fatigue out of the feed.
 - [821 OpenAI spec changes, 3 that can break a client: the honest negative](https://mendapi.com/blog/openai-corridor-821-to-3-capstone.html) — the value of a tool that tells you when you are fine.
 
