@@ -710,7 +710,21 @@ function printTerminalReport(report, elapsedMs) {
 
   const shown = report.impacts.filter((im) => im.confidence !== 'low');
   const hidden = report.impacts.length - shown.length;
-  const list = shown.length ? shown : report.impacts.slice(0, 5);
+  // Terminal render cap: a repo with one generic SDK import and zero symbol
+  // matches can accumulate thousands of medium hits (every breaking change of
+  // that provider). Dumping them all makes the first-run report unreadable —
+  // the terminal view is a summary, the full data always lives in --json/--out.
+  // High-confidence hits are never capped (they are the actionable core).
+  const MAX_TERMINAL_IMPACTS = 25;
+  let list = shown.length ? shown : report.impacts.slice(0, 5);
+  let capped = 0;
+  if (list.length > MAX_TERMINAL_IMPACTS) {
+    const high = list.filter((im) => im.confidence === 'high');
+    const rest = list.filter((im) => im.confidence !== 'high');
+    const budget = Math.max(MAX_TERMINAL_IMPACTS - high.length, 0);
+    capped = rest.length - budget;
+    list = [...high, ...rest.slice(0, budget)];
+  }
   for (const im of list) {
     const ch = im.change;
     out.push(`${CONF_LABEL[im.confidence]} ${bold(`[${ch.provider}]`)} ${ch.title}`);
@@ -720,6 +734,10 @@ function printTerminalReport(report, elapsedMs) {
       out.push(`       ${cyan(`${s.file}:${s.line}`)}  ${dim((s.symbol || s.detail || '').slice(0, 60))}`);
     }
     if (sites.length > 3) out.push(`       ${dim(`... and ${sites.length - 3} more sites`)}`);
+    out.push('');
+  }
+  if (capped > 0) {
+    out.push(dim(`${capped} more medium-confidence impact${capped === 1 ? '' : 's'} not shown — use --json or --out for the full report.`));
     out.push('');
   }
   if (shown.length && hidden > 0) {
