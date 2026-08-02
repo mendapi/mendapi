@@ -11,10 +11,20 @@
 //   npx mendapi --help
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+
+// Single source of truth for the version: package.json (never hand-write it here).
+function pkgVersion() {
+  try {
+    return JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+  } catch {
+    return 'unknown';
+  }
+}
 
 const COMMANDS = {
   sync:   { script: 'watcher.js', summary: 'Fetch the latest API change feed from provider release channels (network)' },
@@ -42,6 +52,7 @@ function printHelp() {
   }
   console.log('');
   console.log('Run `mendapi <command> --help` (or with no args) for command options.');
+  console.log('Run `mendapi --version` to print the installed version.');
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -49,6 +60,11 @@ const [cmd, ...rest] = process.argv.slice(2);
 if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
   printHelp();
   process.exit(cmd ? 0 : 2);
+}
+
+if (cmd === '--version' || cmd === '-v' || cmd === 'version') {
+  console.log(pkgVersion());
+  process.exit(0);
 }
 
 const target = COMMANDS[cmd];
