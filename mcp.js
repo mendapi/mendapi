@@ -7,6 +7,7 @@
 //   scan    — scan a repo for usage impacted by upstream API breaking changes
 //   deps    — inventory which provider API surfaces a repo uses (optionally --match)
 //   fix     — preview (dry-run) or apply a deterministic migration pack
+//   revalidate — audit migration packs for staleness against the local DB
 //   changes — query the local change database (provider / type filters)
 //
 // Usage: mendapi mcp    (then speak MCP over stdin/stdout)
@@ -360,7 +361,7 @@ if (argv.includes('--help') || argv.includes('-h')) {
   console.log('Usage: mendapi mcp');
   console.log('');
   console.log('Starts a Model Context Protocol server on stdio (JSON-RPC 2.0, newline-delimited).');
-  console.log('Tools: scan, deps, fix, changes. All local; no network code.');
+  console.log('Tools: scan, deps, fix, revalidate, changes. All local; no network code.');
   process.exit(0);
 }
 

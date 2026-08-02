@@ -25,7 +25,7 @@ const COMMANDS = {
   deps:   { script: 'deps.js',    summary: 'Inventory which provider API surfaces this repo uses (evidence-backed, local only)' },
   revalidate: { script: 'revalidate.js', summary: 'Audit migration packs for staleness against newer upstream changes (local only)' },
   pr:     { script: 'pr.js',      summary: 'Turn a fix into a reviewable git branch + PR-ready description (local by default)' },
-  mcp:    { script: 'mcp.js',     summary: 'Run a Model Context Protocol server on stdio (tools: scan, fix, changes, deps; local only)' },
+  mcp:    { script: 'mcp.js',     summary: 'Run a Model Context Protocol server on stdio (tools: scan, fix, deps, revalidate, changes; local only)' },
 };
 
 function printHelp() {
