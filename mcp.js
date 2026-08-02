@@ -24,7 +24,7 @@
 //   - tool results follow the MCP content shape: { content: [{type:'text', text}], isError? }
 
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
@@ -32,7 +32,10 @@ import { createInterface } from 'node:readline';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(ROOT, 'data', 'sentinel.db');
 
-const SERVER_INFO = { name: 'mendapi', version: '0.2.0' };
+// Server identity: version is read from package.json (single source) so the
+// MCP serverInfo can never drift from the published npm version again.
+const PKG_VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+const SERVER_INFO = { name: 'mendapi', version: PKG_VERSION };
 // Dual-era version support (MCP spec revision 2026-07-28, "Versioning and
 // Compatibility"): modern versions are served statelessly via per-request
 // _meta; legacy versions are served via the initialize handshake.
