@@ -160,7 +160,7 @@ We benchmark the change database against real provider spec corpora and publish 
 
 ## Status
 
-Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.1). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
+Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.2). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
 
 ## License
 
