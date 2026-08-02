@@ -102,18 +102,25 @@ if (!target) {
 // Suppress the node:sqlite ExperimentalWarning on every subcommand: it prints two lines of
 // noise to stderr on each run (bad first impression, pollutes MCP stdio logs). The flag
 // exists since Node 21.3.0 and our engines floor is 22.13.0, so it is always available here.
+// CLI convention: explicitly requested help is a success, never a usage error,
+// and its text belongs on stdout (so `mendapi fix --help | grep apply` works).
+// Most subcommands print usage on their usage-error path (stderr, exit 2;
+// review: 1). Normalize the bare `mendapi <cmd> --help` invocation at this
+// single dispatch point: capture the output, emit it on stdout, exit 0.
+// Scoped tight: only when --help/-h is the sole argument — real runs and
+// mixed-flag calls keep inherited stdio and their true exit codes
+// (e.g. `fix --migration bad --help` still fails loud on stderr).
+const helpOnly = rest.length === 1 && (rest[0] === '--help' || rest[0] === '-h');
+const usageCode = cmd === 'review' ? 1 : 2;
 const res = spawnSync(
   process.execPath,
   ['--disable-warning=ExperimentalWarning', join(ROOT, target.script), ...rest],
-  { stdio: 'inherit' }
+  helpOnly ? { encoding: 'utf8' } : { stdio: 'inherit' }
 );
-// CLI convention: explicitly requested help is a success, never a usage error.
-// Each subcommand prints its usage text when asked for --help (it lands on the
-// usage-error path), but exits with its usage-error code (2; review: 1).
-// Normalize the bare `mendapi <cmd> --help` invocation to exit 0 at this single
-// dispatch point. Scoped tight: only when --help/-h is the sole argument AND the
-// subcommand returned its usage code — real runs and mixed-flag calls keep
-// their true exit codes (e.g. `fix --migration bad --help` still fails loud).
-const helpOnly = rest.length === 1 && (rest[0] === '--help' || rest[0] === '-h');
-const usageCode = cmd === 'review' ? 1 : 2;
-process.exit(helpOnly && res.status === usageCode ? 0 : (res.status ?? 1));
+if (helpOnly) {
+  process.stdout.write((res.stdout || '') + (res.stderr || ''));
+  // Subcommands that already handle --help natively exit 0; the rest land on
+  // their usage-error code. Both count as a successful help request.
+  process.exit(res.status === 0 || res.status === usageCode ? 0 : (res.status ?? 1));
+}
+process.exit(res.status ?? 1);
