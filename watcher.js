@@ -266,7 +266,23 @@ async function main() {
   if (errors > 0 && inserted === 0) process.exit(1);
 }
 
+function printUsage() {
+  console.log('Usage: mendapi sync');
+  console.log('');
+  console.log('Fetches the latest API change feed from provider release channels');
+  console.log('(GitHub Releases feeds of official SDK repos) into the local change');
+  console.log('database. This is the only mendapi command that makes network calls,');
+  console.log('and it only runs when you invoke it without --help.');
+}
+
 // Run only when invoked directly (keeps `classify` importable for tests without side effects).
+// --help must never trigger the network sync: a user asking for help gets usage text only.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main();
+  const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    printUsage();
+    process.exit(0);
+  } else {
+    main();
+  }
 }
