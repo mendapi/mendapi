@@ -368,7 +368,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
       process.exit(2);
     }
   } else {
-    console.error('Usage: node app/llmprovider.js --self-test | --show-config');
+    console.error('Usage: node llmprovider.js --self-test | --show-config');
     process.exit(2);
   }
 }

@@ -7018,7 +7018,7 @@ function printInventory(inv) {
 async function main() {
   const args = parseArgs(process.argv);
   if (args.help) {
-    console.error('Usage: node deps.js [--repo <path>] [--json] [--out <file.json>] [--match]');
+    console.error('Usage: mendapi deps [--repo <path>] [--json] [--out <file.json>] [--match]');
     process.exit(2);
   }
   if (!args.repo || args.repo === true) args.repo = process.cwd();

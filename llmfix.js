@@ -36,8 +36,8 @@ const MAX_FILE_BYTES = 64 * 1024; // keep prompts bounded
 const JS_EXTS = new Set(['.js', '.mjs', '.cjs']);
 
 function usage() {
-  console.error('Usage: node app/llmfix.js --from-report <impact.json> [--repo <path>] [--max N] [--out-dir <dir>] [--list]');
-  console.error('Requires MENDAPI_LLM_* config (BYO compute; see app/llmprovider.js). Emits DRAFT patches only; never modifies the repo.');
+  console.error('Usage: mendapi llmfix --from-report <impact.json> [--repo <path>] [--max N] [--out-dir <dir>] [--list]');
+  console.error('Requires MENDAPI_LLM_* config (BYO compute; see the BYO LLM docs at https://mendapi.com/docs/byo-llm.html). Emits DRAFT patches only; never modifies the repo.');
   process.exit(2);
 }
 

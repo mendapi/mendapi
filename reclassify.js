@@ -6,7 +6,7 @@
 // deterministic apply/verify layer. Only rows currently marked by a weaker
 // classifier are updated, and every update is audited via the classifier column.
 //
-// Usage: node app/reclassify.js <classifications.json> [--dry-run]
+// Usage: node reclassify.js <classifications.json> [--dry-run]
 
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ const VALID_TYPES = new Set(['breaking', 'deprecation', 'additive', 'docs-only',
 const file = process.argv[2];
 const dryRun = process.argv.includes('--dry-run');
 if (!file) {
-  console.error('Usage: node app/reclassify.js <classifications.json> [--dry-run]');
+  console.error('Usage: node reclassify.js <classifications.json> [--dry-run]');
   process.exit(1);
 }
 

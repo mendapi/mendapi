@@ -46,9 +46,9 @@ const VERDICTS = new Map([
 ]);
 
 function usage() {
-  console.error('Usage: node app/review.js <impact.json> --pending');
-  console.error('       node app/review.js <impact.json> --verdicts <verdicts.json> [--out reviewed.json] [--dry-run]');
-  console.error('       node app/review.js <impact.json> --llm [--out reviewed.json] [--dry-run] [--max N]  (BYO LLM; requires MENDAPI_LLM_* config)');
+  console.error('Usage: mendapi review <impact.json> --pending');
+  console.error('       mendapi review <impact.json> --verdicts <verdicts.json> [--out reviewed.json] [--dry-run]');
+  console.error('       mendapi review <impact.json> --llm [--out reviewed.json] [--dry-run] [--max N]  (BYO LLM; requires MENDAPI_LLM_* config)');
   process.exit(1);
 }
 

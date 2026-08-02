@@ -354,7 +354,7 @@ function main() {
 
 const argv = process.argv.slice(2);
 if (argv.includes('--help') || argv.includes('-h')) {
-  console.log('Usage: node mcp.js');
+  console.log('Usage: mendapi mcp');
   console.log('');
   console.log('Starts a Model Context Protocol server on stdio (JSON-RPC 2.0, newline-delimited).');
   console.log('Tools: scan, deps, fix, changes. All local; no network code.');

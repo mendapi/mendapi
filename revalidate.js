@@ -188,7 +188,7 @@ async function main() {
   const dbIdx = args.indexOf('--db');
   const dbPath = dbIdx !== -1 ? args[dbIdx + 1] : DEFAULT_DB_PATH;
   if (args.includes('--help')) {
-    console.error('Usage: node revalidate.js [--json] [--db <path>]');
+    console.error('Usage: mendapi revalidate [--json] [--db <path>]');
     process.exit(2);
   }
   const res = assessPacks(MIGRATIONS, dbPath);

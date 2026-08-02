@@ -3937,7 +3937,7 @@ function runMigration(migrationName, repoPath, opts) {
     console.error(`Refusing to run migration '${migrationName}': pack needs revalidation.`);
     console.error(`Newer upstream changes on the same API surface since baseline ${stale.baseline}:`);
     for (const n of stale.newer_changes) console.error(`  #${n.id} (${n.published})${n.anchor ? ` ${n.anchor}` : ''}: ${n.title}`);
-    console.error('Re-verify the pack rules (node app/revalidate.js), then rerun with --ack-stale to proceed.');
+    console.error('Re-verify the pack rules (mendapi revalidate), then rerun with --ack-stale to proceed.');
     if (stale.suggested_revalidated_through) {
       console.error(`Once re-verified, stamp revalidatedThrough: '${stale.suggested_revalidated_through}' on the pack to acknowledge the listed changes permanently.`);
     }
@@ -4117,8 +4117,8 @@ function main() {
   }
 
   if (!args.repo || !args.migration) {
-    console.error('Usage: node fixer.js --repo <path> --migration <name> [--apply] [--run-checks] [--out-dir <dir>] [--ack-stale] [--db <path>] [--json]');
-    console.error('       node fixer.js --from-report <impact.json> [--repo <path>] [--apply] [--run-checks] [--out-dir <dir>] [--db <path>] [--json]');
+    console.error('Usage: mendapi fix --repo <path> --migration <name> [--apply] [--run-checks] [--out-dir <dir>] [--ack-stale] [--db <path>] [--json]');
+    console.error('       mendapi fix --from-report <impact.json> [--repo <path>] [--apply] [--run-checks] [--out-dir <dir>] [--db <path>] [--json]');
     console.error(`Available migrations: ${Object.keys(MIGRATIONS).join(', ')}`);
     process.exit(2);
   }

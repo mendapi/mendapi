@@ -44,7 +44,7 @@ function fail(msg, code = 2) {
 function main() {
   const args = parseArgs(process.argv);
   const repo = args.repo;
-  if (!repo) fail('Usage: node pr.js --repo <git-repo> (--migration <name> | --from-report <impact.json>) [--out-dir <dir>] [--run-checks] [--push]');
+  if (!repo) fail('Usage: mendapi pr --repo <git-repo> (--migration <name> | --from-report <impact.json>) [--out-dir <dir>] [--run-checks] [--push]');
   if (!existsSync(join(repo, '.git'))) fail(`Not a git repository: ${repo}`);
 
   // 1. Clean worktree required — a fix PR must not mix in unrelated edits.

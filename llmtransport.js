@@ -204,7 +204,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   if (process.argv.includes('--self-test')) {
     selfTest();
   } else {
-    console.error('Usage: node app/llmtransport.js --self-test');
+    console.error('Usage: node llmtransport.js --self-test');
     console.error('This module is loaded dynamically by --llm gated commands only.');
     process.exit(2);
   }

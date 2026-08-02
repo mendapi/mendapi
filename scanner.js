@@ -726,8 +726,8 @@ function printTerminalReport(report, elapsedMs) {
     out.push(dim(`${hidden} low-confidence impact${hidden === 1 ? '' : 's'} hidden — use --json or --out for the full report.`));
     out.push('');
   }
-  out.push(dim('Next: node app/review.js --pending <report>   (semantic review of medium hits)'));
-  out.push(dim('      node app/fixer.js --from-report <report>  (preview the fix as a local diff)'));
+  out.push(dim('Next: mendapi review <report> --pending      (semantic review of medium hits)'));
+  out.push(dim('      mendapi fix --from-report <report>     (preview the fix as a local diff)'));
   out.push('');
   console.log(out.join('\n'));
 }
@@ -749,7 +749,7 @@ function main() {
   const started = Date.now();
   const args = parseArgs(process.argv);
   if (args.help) {
-    console.error('Usage: node scanner.js [--repo <path>] [--provider <name>] [--change-id <id>] [--out <file.json>] [--json] [--quiet] [--include-prereleases]');
+    console.error('Usage: mendapi scan [--repo <path>] [--provider <name>] [--change-id <id>] [--out <file.json>] [--json] [--quiet] [--include-prereleases]');
     process.exit(2);
   }
   // Zero-config default: scan the current working directory.

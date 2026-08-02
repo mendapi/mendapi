@@ -353,7 +353,7 @@ if (isMain) {
     assertPayloadSafe(payload);
     console.log(JSON.stringify(payload, null, 2));
   } else {
-    console.log('Usage: node app/payload.js --self-test | <impact-report.json>');
+    console.log('Usage: node payload.js --self-test | <impact-report.json>');
     process.exit(arg === '--help' ? 0 : 1);
   }
 }
