@@ -1,6 +1,6 @@
 {
   "name": "mendapi",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "license": "AGPL-3.0-only",
   "type": "module",
   "description": "Detect upstream API breaking changes, scan your codebase for impact, and open the fix PR.",

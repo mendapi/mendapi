@@ -112,9 +112,13 @@ if (!target) {
 // (e.g. `fix --migration bad --help` still fails loud on stderr).
 const helpOnly = rest.length === 1 && (rest[0] === '--help' || rest[0] === '-h');
 const usageCode = cmd === 'review' ? 1 : 2;
+// Normalize `-h` to `--help` before spawning: several subcommands only parse
+// `--`-prefixed flags, so a bare `-h` would be silently ignored and the
+// subcommand would run for real (e.g. `scan -h` used to full-scan the cwd).
+const childArgs = helpOnly ? ['--help'] : rest;
 const res = spawnSync(
   process.execPath,
-  ['--disable-warning=ExperimentalWarning', join(ROOT, target.script), ...rest],
+  ['--disable-warning=ExperimentalWarning', join(ROOT, target.script), ...childArgs],
   helpOnly ? { encoding: 'utf8' } : { stdio: 'inherit' }
 );
 if (helpOnly) {
