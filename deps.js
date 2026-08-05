@@ -30,11 +30,21 @@ import { SIGNATURES, scanRepo, walk } from './scanner.js';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 import { DB_PATH } from './dbpath.js';
 
+// Flag-only parser. Positional arguments are a usage error, NOT something to
+// silently drop: `mendapi deps ./some/repo` is the most natural thing a user
+// types, and dropping the path made `--repo` fall back to process.cwd() —
+// scanning the WRONG tree while reporting success (Loop 665: a 1-file fixture
+// path silently became a 1016-file scan of the cwd, 8s of CPU, wrong answer,
+// exit 0). Every path/value on these subcommands is passed via an explicit
+// flag, so anything not starting with `--` can only be a mistake. Fail loud.
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith('--')) args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
+    if (a.startsWith('--')) { args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true; continue; }
+    console.error(`Unexpected argument: ${a}`);
+    console.error('This command takes flags only (for example: --repo <path>). Run with --help for usage.');
+    process.exit(2);
   }
   return args;
 }

@@ -16,24 +16,49 @@
 //   6. With --push (and a configured remote + gh CLI), push the branch and
 //      open the PR. Without --push everything stays local — safe default.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { join, dirname } from 'node:path';
+import { join, dirname, basename, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
+// Flag-only parser. Positional arguments are a usage error, NOT something to
+// silently drop: `mendapi deps ./some/repo` is the most natural thing a user
+// types, and dropping the path made `--repo` fall back to process.cwd() —
+// scanning the WRONG tree while reporting success (Loop 665: a 1-file fixture
+// path silently became a 1016-file scan of the cwd, 8s of CPU, wrong answer,
+// exit 0). Every path/value on these subcommands is passed via an explicit
+// flag, so anything not starting with `--` can only be a mistake. Fail loud.
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith('--')) args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
+    if (a.startsWith('--')) { args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true; continue; }
+    console.error(`Unexpected argument: ${a}`);
+    console.error('This command takes flags only (for example: --repo <path>). Run with --help for usage.');
+    process.exit(2);
   }
   return args;
 }
 
 function git(repo, ...cmd) {
   return execFileSync('git', ['-C', repo, ...cmd], { encoding: 'utf8' }).trim();
+}
+
+// Always re-enter Node through process.execPath, never a bare 'node' from PATH:
+// the CLI may be launched by an agent, a CI runner, or an npx shim whose PATH
+// does not contain the interpreter currently executing us. --disable-warning
+// matches what cli.js does for single-process subcommands; pr is the only
+// subcommand that spawns a grandchild, so it has to repeat the suppression or
+// node:sqlite's ExperimentalWarning leaks onto stderr from the child.
+function node(argv, opts = {}) {
+  return execFileSync(
+    process.execPath,
+    ['--disable-warning=ExperimentalWarning', ...argv],
+    { encoding: 'utf8', ...opts },
+  );
 }
 
 function fail(msg, code = 2) {
@@ -47,21 +72,59 @@ function main() {
   if (!repo) fail('Usage: mendapi pr --repo <git-repo> (--migration <name> | --from-report <impact.json>) [--out-dir <dir>] [--run-checks] [--push]');
   if (!existsSync(join(repo, '.git'))) fail(`Not a git repository: ${repo}`);
 
+  // Validate the caller's own arguments BEFORE inspecting the worktree.
+  // Argument errors belong to the caller; worktree state belongs to the repo.
+  // Reporting the latter first told a user who simply mistyped a filename that
+  // their worktree was dirty — and the file it named as the offender was the
+  // report they had asked for, which reads as though the tool contradicts
+  // itself. Resolve against the caller's cwd here too: the fixer runs as a
+  // child and git checkouts move the process around mid-run, so a relative
+  // path kept unresolved can be re-resolved against the wrong directory later.
+  let reportRef = null;
+  if (!args.migration && args['from-report']) {
+    reportRef = resolve(String(args['from-report']));
+    if (!existsSync(reportRef)) fail(`Impact report not found: ${reportRef}`);
+    try {
+      JSON.parse(readFileSync(reportRef, 'utf8'));
+    } catch (e) {
+      fail(`Impact report is not valid JSON: ${reportRef}\n${e.message}`);
+    }
+  }
+
   // 1. Clean worktree required — a fix PR must not mix in unrelated edits.
+  //    mendapi's OWN untracked artifacts do not count as user edits: the
+  //    documented flow is `scan --out impact.json` -> `fix` (writes .mendapi/)
+  //    -> `pr`, so counting them made the documented order refuse itself.
+  //    Anything else — real source edits, other untracked files — still blocks.
   const status = git(repo, 'status', '--porcelain');
-  if (status) fail(`Worktree is dirty; commit or stash first:\n${status}`);
+  const ours = new Set(['.mendapi/', '.mendapi']);
+  if (args['from-report']) ours.add(basename(args['from-report']));
+  if (args['out-dir']) ours.add(basename(args['out-dir']) + '/');
+  const foreign = status
+    .split('\n')
+    .filter(Boolean)
+    .filter((line) => {
+      // Only untracked entries ("?? path") can be ours; modified tracked files
+      // are always foreign, even under .mendapi/.
+      if (!line.startsWith('?? ')) return true;
+      return !ours.has(line.slice(3).trim());
+    });
+  if (foreign.length) fail(`Worktree is dirty; commit or stash first:\n${foreign.join('\n')}`);
 
   // Resolve migration name (direct or via impact report).
   let migration = args.migration;
-  let reportRef = null;
-  if (!migration && args['from-report']) {
-    const impact = JSON.parse(readFileSync(args['from-report'], 'utf8'));
-    reportRef = args['from-report'];
+  if (!migration && reportRef) {
     // Delegate provider->migration matching to the fixer by running it in
     // from-report dry-run first would duplicate work; instead reuse its map
     // via a probe call. Simpler: fixer prints applicable migrations; but for
     // determinism we re-derive from the report using the fixer's own CLI.
-    const probe = execFileSync('node', [join(ROOT, 'fixer.js'), '--from-report', reportRef, '--repo', repo, '--out-dir', '/tmp/mendapi-probe'], { encoding: 'utf8' });
+    const probeDir = mkdtempSync(join(tmpdir(), 'mendapi-probe-'));
+    let probe;
+    try {
+      probe = node([join(ROOT, 'fixer.js'), '--from-report', reportRef, '--repo', repo, '--out-dir', probeDir]);
+    } finally {
+      rmSync(probeDir, { recursive: true, force: true });
+    }
     const m = probe.match(/^Applicable migrations: (.+)$/m);
     if (!m || m[1].trim() === '(none)') fail('No applicable migrations for this impact report.', 1);
     migration = m[1].split(',')[0].trim(); // one migration per PR keeps review focused
@@ -86,7 +149,7 @@ function main() {
   if (args['run-checks']) fixerArgs.push('--run-checks');
   let fixOut;
   try {
-    fixOut = execFileSync('node', fixerArgs, { encoding: 'utf8' });
+    fixOut = node(fixerArgs);
   } catch (e) {
     git(repo, 'checkout', baseBranch);
     fail(`Fixer reported no changes or failed:\n${e.stdout || e.message}`, 1);
@@ -100,7 +163,19 @@ function main() {
   }
   const report = JSON.parse(readFileSync(join(outDir, 'fix-report.json'), 'utf8'));
   const title = `fix: migrate to new ${report.provider} API (${migration})`;
-  git(repo, 'add', '-A');
+  // Stage ONLY the files the fixer rewrote. `git add -A` would sweep in every
+  // artifact the clean-worktree check just exempted above — the impact report,
+  // .mendapi/ (including the multi-hundred-MB change database) — burying a
+  // two-line codemod in an unreviewable commit and, worse, deleting the user's
+  // impact.json from the working tree on checkout back to base. The exemption
+  // list says those files are not the user's edits; it must not then claim
+  // they are part of the fix.
+  const staged = report.files.map((f) => f.file);
+  if (!staged.length) {
+    git(repo, 'checkout', baseBranch);
+    fail('Fix report lists no changed files; nothing to commit.', 1);
+  }
+  git(repo, 'add', '--', ...staged);
   git(repo, 'commit', '-m', title, '-m', `Automated by mendapi.\n\nMigration: ${report.title}\nReference: ${report.reference}`);
   const sha = git(repo, 'rev-parse', '--short', 'HEAD');
 

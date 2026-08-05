@@ -78,11 +78,21 @@ export function isPrereleaseTitle(title = '') {
   return /\d+\.\d+\.\d+\s*(-[0-9A-Za-z.]*(alpha|beta|rc|canary|next|dev|preview|pre)|(a|b|rc)\d+)\b/i.test(title);
 }
 
+// Flag-only parser. Positional arguments are a usage error, NOT something to
+// silently drop: `mendapi deps ./some/repo` is the most natural thing a user
+// types, and dropping the path made `--repo` fall back to process.cwd() —
+// scanning the WRONG tree while reporting success (Loop 665: a 1-file fixture
+// path silently became a 1016-file scan of the cwd, 8s of CPU, wrong answer,
+// exit 0). Every path/value on these subcommands is passed via an explicit
+// flag, so anything not starting with `--` can only be a mistake. Fail loud.
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith('--')) args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
+    if (a.startsWith('--')) { args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true; continue; }
+    console.error(`Unexpected argument: ${a}`);
+    console.error('This command takes flags only (for example: --repo <path>). Run with --help for usage.');
+    process.exit(2);
   }
   return args;
 }
@@ -678,7 +688,7 @@ const CONF_LABEL = {
   low: dim('LOW   '),
 };
 
-function printTerminalReport(report, elapsedMs) {
+function printTerminalReport(report, elapsedMs, savedReport) {
   const out = [];
   out.push('');
   out.push(bold('mendapi scan'));
@@ -744,8 +754,14 @@ function printTerminalReport(report, elapsedMs) {
     out.push(dim(`${hidden} low-confidence impact${hidden === 1 ? '' : 's'} hidden — use --json or --out for the full report.`));
     out.push('');
   }
-  out.push(dim('Next: mendapi review <report> --pending      (semantic review of medium hits)'));
-  out.push(dim('      mendapi fix --from-report <report>     (preview the fix as a local diff)'));
+  if (savedReport) {
+    out.push(dim('Next: mendapi review ' + savedReport + ' --pending'));
+    out.push(dim('      mendapi fix --from-report ' + savedReport));
+  } else {
+    out.push(dim('Next: re-run with --out impact.json to save the report, then:'));
+    out.push(dim('      mendapi review impact.json --pending      (semantic review of medium hits)'));
+    out.push(dim('      mendapi fix --from-report impact.json     (preview the fix as a local diff)'));
+  }
   out.push('');
   console.log(out.join('\n'));
 }
@@ -889,7 +905,7 @@ function main() {
   if (args.out) {
     mkdirSync(dirname(args.out), { recursive: true });
     writeFileSync(args.out, json);
-    printTerminalReport(report, elapsed);
+    printTerminalReport(report, elapsed, args.out);
     console.log(`report written: ${args.out}`);
   } else if (args.json) {
     console.log(json);

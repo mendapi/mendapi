@@ -1,6 +1,6 @@
 {
   "name": "mendapi",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "license": "AGPL-3.0-only",
   "type": "module",
   "description": "Detect upstream API breaking changes, scan your codebase for impact, and open the fix PR.",
@@ -38,7 +38,8 @@
     "mcp.js",
     "watcher.js",
     "reclassify.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22.13.0"

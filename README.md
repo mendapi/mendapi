@@ -6,11 +6,15 @@
 ## 30 seconds to your first result
 
 ```bash
-# In any repo — zero config, zero npm dependencies, nothing leaves your machine
-npx mendapi scan
+# In any repo — zero config, zero npm dependencies
+npx mendapi sync                          # one network call: fetch the change feed
+npx mendapi scan --out impact.json        # local only, from here on
+npx mendapi fix --from-report impact.json
 ```
 
-You get every upstream breaking change that actually hits your code — file, line, and symbol — scored for confidence. Then `npx mendapi fix` drafts the migration as a reviewable diff.
+`sync` pulls the upstream API change feed into a local SQLite database. It is the only command that touches the network, and you run it once (then whenever you want fresher data).
+
+`scan` reports every upstream breaking change that actually hits your code — file, line, and symbol — scored for confidence. `fix` drafts the migration as a reviewable diff, without touching a single file until you pass `--apply`. Neither reads or writes anything outside your machine.
 
 Using an AI coding agent? One line plugs mendapi into Claude Code as an MCP server (Cursor and every other MCP client work too — [details below](#use-it-from-your-ai-coding-agent-mcp)):
 
@@ -160,7 +164,7 @@ We benchmark the change database against real provider spec corpora and publish 
 
 ## Status
 
-Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.5). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
+Published on npm as [`mendapi`](https://www.npmjs.com/package/mendapi) (v0.5.6). Early release — the change database and migration pack registry grow daily; interfaces may still shift before 1.0.
 
 ## License
 

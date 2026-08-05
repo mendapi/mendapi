@@ -3731,11 +3731,21 @@ function migrateSlackErrorCodes(text, pkg, map) {
 }
 
 // ---------- helpers ----------
+// Flag-only parser. Positional arguments are a usage error, NOT something to
+// silently drop: `mendapi deps ./some/repo` is the most natural thing a user
+// types, and dropping the path made `--repo` fall back to process.cwd() —
+// scanning the WRONG tree while reporting success (Loop 665: a 1-file fixture
+// path silently became a 1016-file scan of the cwd, 8s of CPU, wrong answer,
+// exit 0). Every path/value on these subcommands is passed via an explicit
+// flag, so anything not starting with `--` can only be a mistake. Fail loud.
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith('--')) args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true;
+    if (a.startsWith('--')) { args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : true; continue; }
+    console.error(`Unexpected argument: ${a}`);
+    console.error('This command takes flags only (for example: --repo <path>). Run with --help for usage.');
+    process.exit(2);
   }
   return args;
 }
@@ -3871,6 +3881,40 @@ function syntaxCheck(relPath, text) {
 // counted as passed. Scripts run with the repo as cwd via `npm run` so
 // node_modules/.bin resolution matches what the repo's developers see.
 const REPO_CHECK_SCRIPTS = ['test', 'typecheck'];
+
+// Fold the per-migration verification blocks of a pipeline run into one
+// run-level block. Counts sum; repo_checks status is 'ran' if any migration
+// actually ran its checks (their pass/fail counts sum), otherwise 'skipped'
+// carrying the first honest reason — a run is never reported as verified
+// just because one leg of it happened to be.
+function rollupVerification(reports) {
+  const list = Array.isArray(reports) ? reports : [];
+  const syntax = { tool: `node --check (${process.version})`, passed: 0, failed: 0, skipped: 0 };
+  const ranChecks = [];
+  let skipReason = null;
+  for (const r of list) {
+    const v = r && r.verification;
+    if (!v) continue;
+    if (v.syntax_check) {
+      syntax.passed += v.syntax_check.passed || 0;
+      syntax.failed += v.syntax_check.failed || 0;
+      syntax.skipped += v.syntax_check.skipped || 0;
+    }
+    const rc = v.repo_checks;
+    if (!rc) continue;
+    if (rc.status === 'ran') ranChecks.push(...(rc.checks || []));
+    else if (skipReason === null) skipReason = rc.reason || 'skipped';
+  }
+  const repo_checks = ranChecks.length
+    ? {
+        status: 'ran',
+        passed: ranChecks.filter((c) => c.status === 'pass').length,
+        failed: ranChecks.filter((c) => c.status === 'fail').length,
+        checks: ranChecks,
+      }
+    : { status: 'skipped', reason: skipReason || 'no migration in this run ran repo checks' };
+  return { syntax_check: syntax, repo_checks };
+}
 
 function runRepoChecks(repoPath, opts) {
   if (!opts.runChecks) return { status: 'skipped', reason: 'pass --run-checks with --apply to run the repo test/typecheck scripts' };
@@ -4084,7 +4128,7 @@ function main() {
     logOut(`Providers detected: ${[...providers].join(', ') || '(none)'}`);
     logOut(`Applicable migrations: ${applicable.join(', ') || '(none)'}`);
     if (applicable.length === 0) {
-      if (opts.json) console.log(JSON.stringify({ tool: 'mendapi-fixer/0.1', schema_version: 1, mode: opts.apply ? 'apply' : 'dry-run', migrations: [], total_files_changed: 0 }, null, 2));
+      if (opts.json) console.log(JSON.stringify({ tool: 'mendapi-fixer/0.1', schema_version: 1, mode: opts.apply ? 'apply' : 'dry-run', migrations: [], total_files_changed: 0, verification: rollupVerification([]) }, null, 2));
       process.exit(1);
     }
     let totalChanged = 0;
@@ -4103,6 +4147,12 @@ function main() {
         mode: opts.apply ? 'apply' : 'dry-run',
         migrations: opts.collect,
         total_files_changed: totalChanged,
+        // Run-level evidence chain. CI gates want one answer for the whole
+        // pipeline run, not a per-migration fold they have to write
+        // themselves; the per-migration verification blocks stay in
+        // migrations[] for drilldown. Same shape as the single-migration
+        // report so one snippet reads either document.
+        verification: rollupVerification(opts.collect),
       };
       if (opts.refused.length) aggregate.refused_stale = opts.refused;
       console.log(JSON.stringify(aggregate, null, 2));
